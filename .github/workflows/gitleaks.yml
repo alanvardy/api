@@ -1,0 +1,32 @@
+name: gitleaks
+permissions:
+  contents: read
+
+on:
+  push:                # run on pushes to any branch
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * *"
+
+concurrency:
+  group: gitleaks-${{ github.ref }}   # one run per branch/ref
+  cancel-in-progress: true            # cancel older runs on new pushes
+
+jobs:
+  scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_CONFIG: .github/workflows/gitleaks/gitleaks.toml
