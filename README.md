@@ -3,6 +3,7 @@
 ## Migrations
 
 You will need to install `direnv` or equivalent for environment variables
+
 Install the migration tool with `sqlx`
 
 ```bash
