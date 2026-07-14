@@ -1,0 +1,4 @@
+[sqruff]
+dialect = sqlite
+# This is the rule that enforces a new line at the end of the file, it interferes with Alan's editor
+exclude_rules = LT12
