@@ -17,7 +17,7 @@ pub async fn init_db() -> SqlitePool {
 }
 
 pub async fn create_table(pool: &SqlitePool) {
-    sqlx::query(
+    sqlx::query!(
         "CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,

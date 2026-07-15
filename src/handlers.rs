@@ -13,13 +13,12 @@ pub async fn create_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUser>,
 ) -> (StatusCode, Json<User>) {
-    let user = sqlx::query_as::<_, User>(
-        "INSERT INTO users (name, email)
-         VALUES (?, ?)
-         RETURNING id, name, email",
+    let user = sqlx::query_as!(
+        User,
+        "INSERT INTO users (name, email) VALUES (?, ?) RETURNING id, name, email",
+        payload.name,
+        payload.email
     )
-    .bind(payload.name)
-    .bind(payload.email)
     .fetch_one(&state.db)
     .await
     .unwrap();
@@ -28,7 +27,7 @@ pub async fn create_user(
 }
 
 pub async fn get_users(State(state): State<AppState>) -> Json<Vec<User>> {
-    let users = sqlx::query_as::<_, User>("SELECT id, name, email FROM users")
+    let users = sqlx::query_as!(User, "SELECT id, name, email FROM users")
         .fetch_all(&state.db)
         .await
         .unwrap();
@@ -40,8 +39,7 @@ pub async fn get_user_by_id(
     Path(id): Path<i64>,
     State(state): State<AppState>,
 ) -> Result<Json<User>, StatusCode> {
-    let user = sqlx::query_as::<_, User>("SELECT id, name, email FROM users WHERE id = ?")
-        .bind(id)
+    let user = sqlx::query_as!(User, "SELECT id, name, email FROM users WHERE id = ?", id)
         .fetch_optional(&state.db)
         .await
         .unwrap();
@@ -57,15 +55,16 @@ pub async fn update_user(
     State(state): State<AppState>,
     Json(payload): Json<UpdateUser>,
 ) -> Result<Json<User>, StatusCode> {
-    let user = sqlx::query_as::<_, User>(
+    let user = sqlx::query_as!(
+        User,
         "UPDATE users
          SET name = ?, email = ?
          WHERE id = ?
          RETURNING id, name, email",
+        payload.name,
+        payload.email,
+        id
     )
-    .bind(payload.name)
-    .bind(payload.email)
-    .bind(id)
     .fetch_optional(&state.db)
     .await
     .unwrap();
@@ -77,8 +76,7 @@ pub async fn update_user(
 }
 
 pub async fn delete_user(Path(id): Path<i64>, State(state): State<AppState>) -> StatusCode {
-    let result = sqlx::query("DELETE FROM users WHERE id = ?")
-        .bind(id)
+    let result = sqlx::query!("DELETE FROM users WHERE id = ?", id)
         .execute(&state.db)
         .await
         .unwrap();
