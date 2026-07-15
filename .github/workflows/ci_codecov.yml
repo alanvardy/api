@@ -31,6 +31,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install sqlx
+        run: cargo install sqlx-cli --no-default-features --features sqlite
+      - name: Create database
+        run: sqlx database create
+      - name: Migrate database
+        run: sqlx migrate run
       - uses: Swatinem/rust-cache@v2
         with:
           cache-all-crates: true

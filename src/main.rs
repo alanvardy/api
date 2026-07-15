@@ -14,8 +14,6 @@ use state::AppState;
 async fn main() {
     let pool = db::init_db().await;
 
-    db::create_table(&pool).await;
-
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
         .expect("failed to bind server");
@@ -49,8 +47,6 @@ mod tests {
 
     #[sqlx::test]
     async fn create_user_and_verify_exists(pool: SqlitePool) {
-        db::create_table(&pool).await;
-
         // Bind to an OS-assigned port and run the real server in the background,
         // so the test exercises the app over HTTP rather than calling handlers directly.
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

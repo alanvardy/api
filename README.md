@@ -2,6 +2,8 @@
 
 ## Migrations
 
+### Locally
+
 You will need to install `direnv` or equivalent for environment variables
 
 Install the migration tool with `sqlx`
@@ -14,3 +16,14 @@ cargo install sqlx-cli \
 
 - Create a new migration with `sqlx migrate add create_users`
 - Migrate locally with `sqlx migrate run`
+
+#### Production
+
+Connect to the machine using its ID
+
+```bash
+fly machines list -q
+fly console --machine MACHINEID
+# sqlx is available on the server!
+sqlx migrate run
+```

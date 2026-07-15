@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1-bookworm AS chef
 WORKDIR /app
 
 FROM chef AS planner
@@ -20,5 +20,10 @@ RUN cargo build --release --bin api
 # We do not need the Rust toolchain to run the binary!
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
+COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
+COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/target/release/api /usr/local/bin
+ENV DATABASE_URL=sqlite:test.db
+RUN sqlx database create
+RUN sqlx migrate run
 ENTRYPOINT ["/usr/local/bin/api"]
