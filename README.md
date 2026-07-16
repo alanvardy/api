@@ -16,6 +16,7 @@ cargo install sqlx-cli \
 
 - Create a new migration with `sqlx migrate add create_users`
 - Migrate locally with `sqlx migrate run`
+- Update the offline SQL cache with `cargo sqlx prepare`
 
 #### Production
 
