@@ -22,7 +22,7 @@ updates:
     schedule:
       interval: "daily"
     assignees:
-      - stacksjb
+      - alanvardy
     commit-message:
       prefix: "chore"
       include: "scope"
