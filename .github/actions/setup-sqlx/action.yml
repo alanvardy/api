@@ -1,0 +1,15 @@
+name: Setup sqlx
+description: Installs sqlx-cli and creates/migrates the sqlite database used by CI jobs.
+
+runs:
+  using: composite
+  steps:
+    - name: Install sqlx
+      shell: bash
+      run: cargo install sqlx-cli --no-default-features --features sqlite
+    - name: Create database
+      shell: bash
+      run: sqlx database create
+    - name: Migrate database
+      shell: bash
+      run: sqlx migrate run
