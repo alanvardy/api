@@ -21,4 +21,7 @@ WORKDIR /app
 COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/target/release/api /usr/local/bin
+ENV DATABASE_URL=sqlite:test.db
+RUN sqlx database create
+RUN sqlx migrate run
 ENTRYPOINT ["/usr/local/bin/api"]
