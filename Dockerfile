@@ -12,9 +12,7 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 # Build application
 COPY . .
-ENV DATABASE_URL=sqlite:test.db
-RUN sqlx database create
-RUN sqlx migrate run
+ENV SQLX_OFFLINE=true
 RUN cargo build --release --bin api
 
 # We do not need the Rust toolchain to run the binary!
@@ -23,7 +21,4 @@ WORKDIR /app
 COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/target/release/api /usr/local/bin
-ENV DATABASE_URL=sqlite:test.db
-RUN sqlx database create
-RUN sqlx migrate run
 ENTRYPOINT ["/usr/local/bin/api"]

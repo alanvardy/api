@@ -23,6 +23,7 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_RELEASE_LTO: true
   CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
+  SQLX_OFFLINE: true
 
 jobs:
   coverage:
@@ -31,7 +32,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
-      - uses: ./.github/actions/setup-sqlx
       - uses: Swatinem/rust-cache@v2
         with:
           cache-all-crates: true
