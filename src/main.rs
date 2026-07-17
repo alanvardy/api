@@ -5,26 +5,65 @@ mod state;
 
 use axum::{
     Router,
+    extract::{MatchedPath, Request},
     routing::{get, post},
 };
+use tower_http::trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tracing::Level;
+use tracing_subscriber::{EnvFilter, fmt};
 
 use state::AppState;
 
+// Emit one structured JSON log line per event so Fly.io's stdout capture can
+// forward request logs to downstream aggregators such as Loki/Grafana.
+fn init_tracing() {
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,tower_http=info"));
+
+    fmt()
+        .json()
+        .flatten_event(true)
+        .with_current_span(false)
+        .with_env_filter(filter)
+        .init();
+}
+
 #[tokio::main]
 async fn main() {
+    init_tracing();
+
     let pool = db::init_db().await;
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
         .expect("failed to bind server");
 
-    println!("Server running on http://localhost:3000");
+    tracing::info!("Server running on http://localhost:3000");
 
     axum::serve(listener, app(pool)).await.unwrap();
 }
 
 fn app(pool: sqlx::SqlitePool) -> Router {
     let state = AppState { db: pool };
+
+    // Log the matched route (e.g. `/users/{id}`) rather than the concrete path
+    // so per-request logs stay low cardinality and group cleanly in Grafana.
+    let trace_layer = TraceLayer::new_for_http()
+        .make_span_with(|request: &Request<_>| {
+            let path = request
+                .extensions()
+                .get::<MatchedPath>()
+                .map(MatchedPath::as_str)
+                .unwrap_or_else(|| request.uri().path());
+
+            tracing::info_span!(
+                "http_request",
+                method = %request.method(),
+                path = %path,
+            )
+        })
+        .on_request(DefaultOnRequest::new().level(Level::INFO))
+        .on_response(DefaultOnResponse::new().level(Level::INFO));
 
     Router::new()
         .route(
@@ -37,6 +76,7 @@ fn app(pool: sqlx::SqlitePool) -> Router {
                 .put(handlers::update_user)
                 .delete(handlers::delete_user),
         )
+        .layer(trace_layer)
         .with_state(state)
 }
 
