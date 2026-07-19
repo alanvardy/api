@@ -87,25 +87,9 @@ pub async fn delete(Path(id): Path<i64>, State(state): State<AppState>) -> Statu
 }
 #[cfg(test)]
 mod tests {
-    use std::net::SocketAddr;
-
-    use crate::app;
+    use crate::test::*;
     use chrono::Utc;
-    use sqlx::{Pool, Sqlite, SqlitePool};
-
-    async fn start_app(pool: Pool<Sqlite>) -> SocketAddr {
-        // Bind to an OS-assigned port and run the real server in the background,
-        // so the test exercises the app over HTTP rather than calling handlers directly.
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        tokio::spawn(async move {
-            axum::serve(listener, app(pool, "test-password"))
-                .await
-                .unwrap();
-        });
-
-        address
-    }
+    use sqlx::SqlitePool;
 
     #[sqlx::test]
     async fn create_user_and_verify_exists(pool: SqlitePool) {

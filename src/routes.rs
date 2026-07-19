@@ -1,4 +1,4 @@
-use crate::{auth, handlers, state::AppState};
+use crate::{auth, env::Env, handlers, state::AppState};
 use axum::{
     Router,
     middleware::from_fn_with_state,
@@ -6,12 +6,13 @@ use axum::{
 };
 use std::sync::Arc;
 
-pub fn routes(web_password: &str) -> Router<AppState> {
+pub fn routes(env: &Env) -> Router<AppState> {
     Router::new()
-        .nest("/feature_flags", feature_flags(web_password))
+        .nest("/feature_flags", feature_flags(env))
         .nest("/users", users())
 }
-pub fn feature_flags(web_password: &str) -> Router<AppState> {
+pub fn feature_flags(env: &Env) -> Router<AppState> {
+    let password = env.feature_flags_web_password.clone();
     // Password-protect the HTML admin routes while leaving the JSON API open.
     let web = Router::new()
         .route(
@@ -20,7 +21,7 @@ pub fn feature_flags(web_password: &str) -> Router<AppState> {
         )
         .route("/web/{id}", post(handlers::feature_flags::update_web))
         .layer(from_fn_with_state(
-            Arc::<str>::from(web_password),
+            Arc::<str>::from(password),
             auth::require_web_password,
         ));
 
