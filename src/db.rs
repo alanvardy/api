@@ -4,7 +4,7 @@ use sqlx::{
 };
 use std::str::FromStr;
 
-pub async fn init_db() -> SqlitePool {
+pub async fn init() -> SqlitePool {
     let options = SqliteConnectOptions::from_str("sqlite:test.db")
         .unwrap()
         .create_if_missing(true);

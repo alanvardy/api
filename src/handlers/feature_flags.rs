@@ -232,28 +232,9 @@ fn html_escape(input: &str) -> String {
 }
 #[cfg(test)]
 mod tests {
-    use std::net::SocketAddr;
-
-    use crate::app;
+    use crate::test::*;
     use chrono::Utc;
-    use sqlx::{Pool, Sqlite, SqlitePool};
-
-    const WEB_USERNAME: &str = "admin";
-    const WEB_PASSWORD: &str = "test-password";
-
-    async fn start_app(pool: Pool<Sqlite>) -> SocketAddr {
-        // Bind to an OS-assigned port and run the real server in the background,
-        // so the test exercises the app over HTTP rather than calling handlers directly.
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        tokio::spawn(async move {
-            axum::serve(listener, app(pool, WEB_PASSWORD))
-                .await
-                .unwrap();
-        });
-
-        address
-    }
+    use sqlx::SqlitePool;
 
     #[sqlx::test]
     async fn get_feature_flags_returns_inserted_flag(pool: SqlitePool) {
