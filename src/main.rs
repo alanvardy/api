@@ -1,6 +1,7 @@
 mod auth;
 mod db;
 mod env;
+mod error;
 mod handlers;
 mod log;
 mod models;

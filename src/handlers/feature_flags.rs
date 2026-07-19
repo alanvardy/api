@@ -6,10 +6,11 @@ use axum::{
 use chrono::{DateTime, Utc};
 
 use crate::{
+    error::{AppError, WebError},
     models::{CreateFeatureFlag, FeatureFlag, UpdateFeatureFlag},
     state::AppState,
 };
-pub async fn get(State(state): State<AppState>) -> Json<Vec<FeatureFlag>> {
+pub async fn get(State(state): State<AppState>) -> Result<Json<Vec<FeatureFlag>>, AppError> {
     let feature_flags = sqlx::query_as!(
         FeatureFlag,
         r#"SELECT id, name, enabled,
@@ -18,13 +19,12 @@ pub async fn get(State(state): State<AppState>) -> Json<Vec<FeatureFlag>> {
            FROM feature_flags"#
     )
     .fetch_all(&state.db)
-    .await
-    .unwrap();
+    .await?;
 
-    Json(feature_flags)
+    Ok(Json(feature_flags))
 }
 
-pub async fn get_web(State(state): State<AppState>) -> Html<String> {
+pub async fn get_web(State(state): State<AppState>) -> Result<Html<String>, WebError> {
     let feature_flags = sqlx::query_as!(
         FeatureFlag,
         r#"SELECT id, name, enabled,
@@ -33,16 +33,15 @@ pub async fn get_web(State(state): State<AppState>) -> Html<String> {
            FROM feature_flags"#
     )
     .fetch_all(&state.db)
-    .await
-    .unwrap();
+    .await?;
 
-    Html(render_page(&feature_flags))
+    Ok(Html(render_page(&feature_flags)))
 }
 
 pub async fn create_web(
     State(state): State<AppState>,
     Form(payload): Form<CreateFeatureFlag>,
-) -> Redirect {
+) -> Result<Redirect, WebError> {
     let now = Utc::now();
     sqlx::query!(
         "INSERT INTO feature_flags (name, enabled, created_at, updated_at)
@@ -53,17 +52,16 @@ pub async fn create_web(
         now
     )
     .execute(&state.db)
-    .await
-    .unwrap();
+    .await?;
 
-    Redirect::to("/feature_flags/web")
+    Ok(Redirect::to("/feature_flags/web"))
 }
 
 pub async fn update_web(
     Path(id): Path<i64>,
     State(state): State<AppState>,
     Form(payload): Form<UpdateFeatureFlag>,
-) -> Redirect {
+) -> Result<Redirect, WebError> {
     let now = Utc::now();
     sqlx::query!(
         "UPDATE feature_flags
@@ -74,10 +72,9 @@ pub async fn update_web(
         id
     )
     .execute(&state.db)
-    .await
-    .unwrap();
+    .await?;
 
-    Redirect::to("/feature_flags/web")
+    Ok(Redirect::to("/feature_flags/web"))
 }
 
 fn render_page(feature_flags: &[FeatureFlag]) -> String {
@@ -421,6 +418,38 @@ mod tests {
             .expect("response should be valid JSON");
 
         assert_eq!(flags[0]["enabled"], false);
+    }
+
+    #[sqlx::test]
+    async fn create_duplicate_feature_flag_web_returns_conflict(pool: SqlitePool) {
+        sqlx::query(
+            "INSERT INTO feature_flags (name, enabled, created_at, updated_at)
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind("dark_mode")
+        .bind(true)
+        .bind(Utc::now())
+        .bind(Utc::now())
+        .execute(&pool)
+        .await
+        .expect("inserting a feature flag should succeed");
+
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap();
+
+        let response = client
+            .post(format!("http://{addr}/feature_flags/web"))
+            .basic_auth(WEB_USERNAME, Some(WEB_PASSWORD))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body("name=dark_mode&enabled=true")
+            .send()
+            .await
+            .expect("request to create duplicate feature flag should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::CONFLICT);
     }
 
     #[sqlx::test]
