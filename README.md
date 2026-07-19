@@ -28,3 +28,8 @@ fly console --machine MACHINEID
 # sqlx is available on the server!
 sqlx migrate run
 ```
+
+#### Feature flags
+
+Access is at `/feature_flags/web` and is password protected.
+Local username/password is `admin` and `password`

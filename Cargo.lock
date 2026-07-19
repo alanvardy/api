@@ -31,11 +31,13 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "chrono",
  "reqwest",
  "serde",
  "serde_json",
  "sqlx",
+ "subtle",
  "tokio",
  "tower-http 0.7.0",
  "tracing",

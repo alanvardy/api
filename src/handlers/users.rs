@@ -99,7 +99,9 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         tokio::spawn(async move {
-            axum::serve(listener, app(pool)).await.unwrap();
+            axum::serve(listener, app(pool, "test-password"))
+                .await
+                .unwrap();
         });
 
         address
