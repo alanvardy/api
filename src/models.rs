@@ -20,7 +20,6 @@ pub struct CreateFeatureFlag {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateFeatureFlag {
-    pub name: String,
     #[serde(default)]
     pub enabled: bool,
 }
