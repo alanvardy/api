@@ -166,13 +166,18 @@ mod tests {
     use chrono::Utc;
     use sqlx::{Pool, Sqlite, SqlitePool};
 
+    const WEB_USERNAME: &str = "admin";
+    const WEB_PASSWORD: &str = "test-password";
+
     async fn start_app(pool: Pool<Sqlite>) -> SocketAddr {
         // Bind to an OS-assigned port and run the real server in the background,
         // so the test exercises the app over HTTP rather than calling handlers directly.
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         tokio::spawn(async move {
-            axum::serve(listener, app(pool)).await.unwrap();
+            axum::serve(listener, app(pool, WEB_PASSWORD))
+                .await
+                .unwrap();
         });
 
         address
@@ -235,6 +240,7 @@ mod tests {
 
         let response = client
             .get(format!("http://{addr}/feature_flags/web"))
+            .basic_auth(WEB_USERNAME, Some(WEB_PASSWORD))
             .send()
             .await
             .expect("request to fetch feature flags web page should succeed");
@@ -269,6 +275,7 @@ mod tests {
 
         let response = client
             .post(format!("http://{addr}/feature_flags/web"))
+            .basic_auth(WEB_USERNAME, Some(WEB_PASSWORD))
             .header("content-type", "application/x-www-form-urlencoded")
             .body("name=new_flag&enabled=true")
             .send()
@@ -300,6 +307,7 @@ mod tests {
 
         client
             .post(format!("http://{addr}/feature_flags/web"))
+            .basic_auth(WEB_USERNAME, Some(WEB_PASSWORD))
             .header("content-type", "application/x-www-form-urlencoded")
             .body("name=off_flag")
             .send()
@@ -342,6 +350,7 @@ mod tests {
 
         let response = client
             .post(format!("http://{addr}/feature_flags/web/{id}"))
+            .basic_auth(WEB_USERNAME, Some(WEB_PASSWORD))
             .header("content-type", "application/x-www-form-urlencoded")
             .body("name=light_mode")
             .send()
@@ -361,5 +370,55 @@ mod tests {
 
         assert_eq!(flags[0]["name"], "light_mode");
         assert_eq!(flags[0]["enabled"], false);
+    }
+
+    #[sqlx::test]
+    async fn web_route_without_credentials_is_unauthorized(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/feature_flags/web"))
+            .send()
+            .await
+            .expect("request without credentials should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+        assert!(
+            response
+                .headers()
+                .get("www-authenticate")
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| value.contains("Basic"))
+        );
+    }
+
+    #[sqlx::test]
+    async fn web_route_with_wrong_password_is_unauthorized(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/feature_flags/web"))
+            .basic_auth(WEB_USERNAME, Some("wrong-password"))
+            .send()
+            .await
+            .expect("request with wrong password should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    }
+
+    #[sqlx::test]
+    async fn json_route_does_not_require_credentials(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/feature_flags"))
+            .send()
+            .await
+            .expect("request to fetch feature flags should succeed");
+
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
     }
 }
