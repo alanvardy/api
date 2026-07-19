@@ -19,3 +19,6 @@
 ## Commits and PRs
 - Code comments should describe what and why but not how
 - `main` is the base branch when reviewing code
+
+## SQL Migrations
+- Run `cargo sqlx prepare` after any new migration files are created

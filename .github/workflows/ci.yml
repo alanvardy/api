@@ -1,9 +1,17 @@
 # This file performs CI testing for Tod using GitHub Actions.
 # It runs tests, checks code quality, and ensures no TODO/FIXME comments are left in the code.
 
-name: CI Push
+name: CI
 
-on: [push, workflow_dispatch]
+# Run on pull requests for any branch, and on pushes to the default branch only.
+# This avoids duplicate runs when pushing to a branch that has an open PR:
+# branch pushes are covered by pull_request, and main is covered by push.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -25,7 +33,6 @@ jobs:
   test:
     name: Cargo CI Tests
     runs-on: ubuntu-latest
-    # Run on push, workflow_dispatch, OR PRs from forks.
     steps:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@nextest
@@ -37,7 +44,7 @@ jobs:
       - name: Cargo Test
         run: cargo nextest run --all-features
       - name: Upload nextest JUnit test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

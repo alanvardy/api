@@ -3,8 +3,10 @@ permissions:
   contents: read
 
 on:
-  push:                # run on pushes to any branch
-  pull_request:
+  push:
+    branches:
+      - main         # only run on pushes to the default branch
+  pull_request:      # PR branches are covered here, avoiding duplicate runs
   workflow_dispatch:
   schedule:
     - cron: "0 4 * * *"
