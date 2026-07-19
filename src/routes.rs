@@ -28,6 +28,7 @@ mod tests {
     use std::net::SocketAddr;
 
     use crate::app;
+    use chrono::Utc;
     use sqlx::{Pool, Sqlite, SqlitePool};
 
     async fn start_app(pool: Pool<Sqlite>) -> SocketAddr {
@@ -81,5 +82,43 @@ mod tests {
         assert_eq!(fetched["id"], id);
         assert_eq!(fetched["name"], "Alice");
         assert_eq!(fetched["email"], "alice@example.com");
+    }
+
+    #[sqlx::test]
+    async fn get_feature_flags_returns_inserted_flag(pool: SqlitePool) {
+        sqlx::query(
+            "INSERT INTO feature_flags (name, enabled, created_at, updated_at)
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind("dark_mode")
+        .bind(true)
+        .bind(Utc::now())
+        .bind(Utc::now())
+        .execute(&pool)
+        .await
+        .expect("inserting a feature flag should succeed");
+
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/feature_flags"))
+            .send()
+            .await
+            .expect("request to fetch feature flags should succeed");
+
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+
+        let flags: serde_json::Value = response
+            .json()
+            .await
+            .expect("response should be valid JSON");
+
+        assert_eq!(
+            flags.as_array().expect("response should be an array").len(),
+            1
+        );
+        assert_eq!(flags[0]["name"], "dark_mode");
+        assert_eq!(flags[0]["enabled"], true);
     }
 }
