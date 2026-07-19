@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO feature_flags (name, enabled, created_at, updated_at)\n         VALUES (?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "4c712d8cd74dd0206eb9affd54811bfa24463cd13e0c0a2d9760a40169c21195"
+}

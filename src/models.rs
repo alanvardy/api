@@ -11,6 +11,20 @@ pub struct FeatureFlag {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CreateFeatureFlag {
+    pub name: String,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateFeatureFlag {
+    pub name: String,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
 #[derive(Debug, Serialize, FromRow)]
 pub struct User {
     pub id: i64,
