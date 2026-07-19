@@ -5,13 +5,14 @@ use axum::{
 };
 
 use crate::{
+    error::AppError,
     models::{CreateUser, UpdateUser, User},
     state::AppState,
 };
 pub async fn create(
     State(state): State<AppState>,
     Json(payload): Json<CreateUser>,
-) -> (StatusCode, Json<User>) {
+) -> Result<(StatusCode, Json<User>), AppError> {
     let user = sqlx::query_as!(
         User,
         "INSERT INTO users (name, email) VALUES (?, ?) RETURNING id, name, email",
@@ -19,40 +20,34 @@ pub async fn create(
         payload.email
     )
     .fetch_one(&state.db)
-    .await
-    .unwrap();
+    .await?;
 
-    (StatusCode::CREATED, Json(user))
+    Ok((StatusCode::CREATED, Json(user)))
 }
 
-pub async fn get(State(state): State<AppState>) -> Json<Vec<User>> {
+pub async fn get(State(state): State<AppState>) -> Result<Json<Vec<User>>, AppError> {
     let users = sqlx::query_as!(User, "SELECT id, name, email FROM users")
         .fetch_all(&state.db)
-        .await
-        .unwrap();
+        .await?;
 
-    Json(users)
+    Ok(Json(users))
 }
 pub async fn get_by_id(
     Path(id): Path<i64>,
     State(state): State<AppState>,
-) -> Result<Json<User>, StatusCode> {
+) -> Result<Json<User>, AppError> {
     let user = sqlx::query_as!(User, "SELECT id, name, email FROM users WHERE id = ?", id)
         .fetch_optional(&state.db)
-        .await
-        .unwrap();
+        .await?;
 
-    match user {
-        Some(user) => Ok(Json(user)),
-        None => Err(StatusCode::NOT_FOUND),
-    }
+    user.map(Json).ok_or(AppError::NotFound)
 }
 
 pub async fn update(
     Path(id): Path<i64>,
     State(state): State<AppState>,
     Json(payload): Json<UpdateUser>,
-) -> Result<Json<User>, StatusCode> {
+) -> Result<Json<User>, AppError> {
     let user = sqlx::query_as!(
         User,
         "UPDATE users
@@ -64,25 +59,23 @@ pub async fn update(
         id
     )
     .fetch_optional(&state.db)
-    .await
-    .unwrap();
+    .await?;
 
-    match user {
-        Some(user) => Ok(Json(user)),
-        None => Err(StatusCode::NOT_FOUND),
-    }
+    user.map(Json).ok_or(AppError::NotFound)
 }
 
-pub async fn delete(Path(id): Path<i64>, State(state): State<AppState>) -> StatusCode {
+pub async fn delete(
+    Path(id): Path<i64>,
+    State(state): State<AppState>,
+) -> Result<StatusCode, AppError> {
     let result = sqlx::query!("DELETE FROM users WHERE id = ?", id)
         .execute(&state.db)
-        .await
-        .unwrap();
+        .await?;
 
     if result.rows_affected() == 0 {
-        StatusCode::NOT_FOUND
+        Ok(StatusCode::NOT_FOUND)
     } else {
-        StatusCode::NO_CONTENT
+        Ok(StatusCode::NO_CONTENT)
     }
 }
 #[cfg(test)]
@@ -130,6 +123,27 @@ mod tests {
         assert_eq!(fetched["id"], id);
         assert_eq!(fetched["name"], "Alice");
         assert_eq!(fetched["email"], "alice@example.com");
+    }
+
+    #[sqlx::test]
+    async fn get_missing_user_returns_not_found_with_error_body(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/users/999"))
+            .send()
+            .await
+            .expect("request to fetch missing user should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
+
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .expect("response should be valid JSON");
+
+        assert_eq!(body["error"], "resource not found");
     }
 
     #[sqlx::test]
