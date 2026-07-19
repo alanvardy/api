@@ -10,7 +10,9 @@ pub fn routes() -> Router<AppState> {
         .nest("/users", users())
 }
 pub fn feature_flags() -> Router<AppState> {
-    Router::new().route("/", get(handlers::get_feature_flags))
+    Router::new()
+        .route("/", get(handlers::get_feature_flags))
+        .route("/web", get(handlers::get_feature_flags_web))
 }
 pub fn users() -> Router<AppState> {
     Router::new()
@@ -120,5 +122,47 @@ mod tests {
         );
         assert_eq!(flags[0]["name"], "dark_mode");
         assert_eq!(flags[0]["enabled"], true);
+    }
+
+    #[sqlx::test]
+    async fn get_feature_flags_web_renders_table(pool: SqlitePool) {
+        sqlx::query(
+            "INSERT INTO feature_flags (name, enabled, created_at, updated_at)
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind("dark_mode")
+        .bind(true)
+        .bind(Utc::now())
+        .bind(Utc::now())
+        .execute(&pool)
+        .await
+        .expect("inserting a feature flag should succeed");
+
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/feature_flags/web"))
+            .send()
+            .await
+            .expect("request to fetch feature flags web page should succeed");
+
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        assert!(
+            response
+                .headers()
+                .get("content-type")
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| value.contains("text/html"))
+        );
+
+        let body = response
+            .text()
+            .await
+            .expect("response should have a text body");
+
+        assert!(body.contains("<table"));
+        assert!(body.contains("dark_mode"));
+        assert!(body.contains("Enabled"));
     }
 }

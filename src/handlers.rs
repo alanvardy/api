@@ -2,6 +2,7 @@ use axum::{
     Json,
     extract::{Path, State},
     http::StatusCode,
+    response::Html,
 };
 use chrono::{DateTime, Utc};
 
@@ -49,6 +50,76 @@ pub async fn get_feature_flags(State(state): State<AppState>) -> Json<Vec<Featur
     .unwrap();
 
     Json(feature_flags)
+}
+
+pub async fn get_feature_flags_web(State(state): State<AppState>) -> Html<String> {
+    let feature_flags = sqlx::query_as!(
+        FeatureFlag,
+        r#"SELECT id, name, enabled,
+            created_at AS "created_at: DateTime<Utc>",
+            updated_at AS "updated_at: DateTime<Utc>"
+           FROM feature_flags"#
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap();
+
+    Html(render_feature_flags_page(&feature_flags))
+}
+
+fn render_feature_flags_page(feature_flags: &[FeatureFlag]) -> String {
+    let rows = feature_flags
+        .iter()
+        .map(|flag| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                flag.id,
+                html_escape(&flag.name),
+                if flag.enabled { "Enabled" } else { "Disabled" },
+                flag.created_at.to_rfc3339(),
+                flag.updated_at.to_rfc3339(),
+            )
+        })
+        .collect::<String>();
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feature Flags</title>
+<style>
+body {{ font-family: system-ui, sans-serif; margin: 2rem; }}
+h1 {{ margin-bottom: 1rem; }}
+table {{ border-collapse: collapse; width: 100%; }}
+th, td {{ border: 1px solid #ccc; padding: 0.5rem 0.75rem; text-align: left; }}
+th {{ background: #f5f5f5; }}
+tr:nth-child(even) {{ background: #fafafa; }}
+</style>
+</head>
+<body>
+<h1>Feature Flags</h1>
+<table>
+<thead>
+<tr><th>ID</th><th>Name</th><th>Status</th><th>Created</th><th>Updated</th></tr>
+</thead>
+<tbody>
+{rows}
+</tbody>
+</table>
+</body>
+</html>"#
+    )
+}
+
+fn html_escape(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 pub async fn get_user_by_id(
