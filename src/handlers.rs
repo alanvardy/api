@@ -3,9 +3,10 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
+use chrono::{DateTime, Utc};
 
 use crate::{
-    models::{CreateUser, UpdateUser, User},
+    models::{CreateUser, FeatureFlag, UpdateUser, User},
     state::AppState,
 };
 
@@ -33,6 +34,21 @@ pub async fn get_users(State(state): State<AppState>) -> Json<Vec<User>> {
         .unwrap();
 
     Json(users)
+}
+
+pub async fn get_feature_flags(State(state): State<AppState>) -> Json<Vec<FeatureFlag>> {
+    let feature_flags = sqlx::query_as!(
+        FeatureFlag,
+        r#"SELECT id, name, enabled,
+            created_at AS "created_at: DateTime<Utc>",
+            updated_at AS "updated_at: DateTime<Utc>"
+           FROM feature_flags"#
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap();
+
+    Json(feature_flags)
 }
 
 pub async fn get_user_by_id(
