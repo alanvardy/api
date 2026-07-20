@@ -2,19 +2,31 @@
 //! Set them for production with `fly secrets set KEY=VALUE`
 //! Set them locally in `.env`
 
+use aws_config::SdkConfig;
+
+#[derive(Clone)]
 pub struct Env {
     pub feature_flags_web_password: String,
+    pub aws_config: SdkConfig,
+    pub s3_bucket: String,
 }
 
 impl Env {
-    pub fn init() -> Env {
+    pub async fn init() -> Env {
         let feature_flags_web_password = std::env::var("FEATURE_FLAGS_WEB_PASSWORD")
             .ok()
             .filter(|password| !password.is_empty())
             .expect("FEATURE_FLAGS_WEB_PASSWORD must be set and non-empty");
+        let aws_config = aws_config::load_from_env().await;
+        let s3_bucket = std::env::var("BUCKET_NAME")
+            .ok()
+            .filter(|bucket| !bucket.is_empty())
+            .expect("BUCKET_NAME must be set and non-empty");
 
         Env {
+            aws_config,
             feature_flags_web_password,
+            s3_bucket,
         }
     }
 }

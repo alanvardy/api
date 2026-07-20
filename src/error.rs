@@ -9,6 +9,8 @@ use serde::Serialize;
 // and a client-safe message; underlying causes are logged, never serialized.
 pub enum AppError {
     NotFound,
+    BadRequest(&'static str),
+    Storage,
     Database(sqlx::Error),
 }
 
@@ -35,6 +37,8 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             AppError::NotFound => (StatusCode::NOT_FOUND, "resource not found"),
+            AppError::BadRequest(message) => (StatusCode::BAD_REQUEST, message),
+            AppError::Storage => (StatusCode::INTERNAL_SERVER_ERROR, "internal server error"),
             AppError::Database(err) => database_response(err),
         };
 
