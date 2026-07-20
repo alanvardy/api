@@ -18,7 +18,7 @@ async fn main() {
     log::init();
 
     let pool = db::init().await;
-    let env = Env::init();
+    let env = Env::init().await;
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
@@ -30,7 +30,10 @@ async fn main() {
 }
 
 fn app(pool: sqlx::SqlitePool, env: &Env) -> Router {
-    let state = AppState { db: pool };
+    let state = AppState {
+        db: pool,
+        env: env.clone(),
+    };
 
     routes::routes(env)
         .layer(log::trace_layer())
