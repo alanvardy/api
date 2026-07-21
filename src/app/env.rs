@@ -9,6 +9,7 @@ pub struct Env {
     pub feature_flags_web_password: String,
     pub aws_config: SdkConfig,
     pub s3_bucket: String,
+    pub http_port: u16,
 }
 
 impl Env {
@@ -23,10 +24,18 @@ impl Env {
             .filter(|bucket| !bucket.is_empty())
             .expect("BUCKET_NAME must be set and non-empty");
 
+        let http_port = std::env::var("PORT")
+            .ok()
+            .filter(|var| !var.is_empty())
+            .expect("PORT must be set and non-empty")
+            .parse()
+            .unwrap();
+
         Env {
             aws_config,
             feature_flags_web_password,
             s3_bucket,
+            http_port,
         }
     }
 }
