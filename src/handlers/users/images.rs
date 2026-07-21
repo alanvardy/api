@@ -50,13 +50,40 @@ pub async fn post(
     {
         // Roll back the uploaded object so we do not leave orphaned files
         // in storage when the database insert fails.
-        if let Err(delete_err) = files::delete(&aws_config, &bucket, &key).await {
-            tracing::error!(error = %delete_err, "failed to delete orphaned object from s3");
-        }
+        files::delete(&aws_config, &bucket, &key).await?;
         return Err(err.into());
     }
 
     Ok((StatusCode::CREATED, Json(UploadResponse { key })))
+}
+
+pub async fn delete(
+    Path((user_id, image_id)): Path<(i64, i64)>,
+    State(state): State<AppState>,
+) -> Result<StatusCode, AppError> {
+    let aws_config = state.env.aws_config;
+    let bucket = state.env.s3_bucket;
+
+    // Ensure the file exists and belongs to this user before touching storage.
+    let file = sqlx::query_as!(
+        File,
+        "SELECT id, key, content_type, user_id FROM files WHERE user_id = ? AND id = ?",
+        user_id,
+        image_id
+    )
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or(AppError::NotFound)?;
+
+    // Remove the object from storage first so a database delete failure does
+    // not leave a dangling record pointing at a missing object.
+    files::delete(&aws_config, &bucket, &file.key).await?;
+
+    sqlx::query!("DELETE FROM files WHERE id = ?", file.id)
+        .execute(&state.db)
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn get(
@@ -78,6 +105,29 @@ pub async fn get(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::*;
+    use sqlx::SqlitePool;
+
+    #[sqlx::test]
+    async fn delete_missing_image_returns_not_found(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .delete(format!("http://{addr}/users/1/images/999"))
+            .send()
+            .await
+            .expect("request to delete missing image should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
+
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .expect("response should be valid JSON");
+
+        assert_eq!(body["error"], "resource not found");
+    }
 
     #[test]
     fn valid_base64_decodes_to_expected_bytes() {

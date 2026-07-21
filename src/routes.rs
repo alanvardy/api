@@ -3,7 +3,7 @@ use crate::handlers;
 use axum::{
     Router,
     middleware::from_fn_with_state,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use std::sync::Arc;
 
@@ -32,10 +32,12 @@ pub fn feature_flags(env: &Env) -> Router<AppState> {
 }
 
 pub fn images() -> Router<AppState> {
-    Router::new().route(
-        "/",
-        post(handlers::users::images::post).get(handlers::users::images::get),
-    )
+    Router::new()
+        .route(
+            "/",
+            post(handlers::users::images::post).get(handlers::users::images::get),
+        )
+        .route("/{image_id}", delete(handlers::users::images::delete))
 }
 pub fn users() -> Router<AppState> {
     Router::new()

@@ -1,7 +1,5 @@
 use crate::app::error::AppError;
 use aws_config::SdkConfig;
-use aws_sdk_s3::error::SdkError;
-use aws_sdk_s3::operation::delete_object::DeleteObjectError;
 use aws_sdk_s3::primitives::ByteStream;
 use chrono::Utc;
 
@@ -35,11 +33,7 @@ pub async fn upload(
 }
 
 // Deletes a file from Tigris by key
-pub async fn delete(
-    aws_config: &SdkConfig,
-    bucket: &str,
-    key: &str,
-) -> Result<(), SdkError<DeleteObjectError>> {
+pub async fn delete(aws_config: &SdkConfig, bucket: &str, key: &str) -> Result<(), AppError> {
     let client = aws_sdk_s3::Client::new(aws_config);
 
     client
@@ -49,4 +43,8 @@ pub async fn delete(
         .send()
         .await
         .map(|_| ())
+        .map_err(|err| {
+            tracing::error!(error = %err, "failed to delete object from s3");
+            AppError::Storage
+        })
 }
