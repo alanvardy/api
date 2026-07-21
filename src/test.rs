@@ -10,6 +10,8 @@ pub const WEB_USERNAME: &str = "admin";
 #[cfg(test)]
 pub const WEB_PASSWORD: &str = "test-password";
 #[cfg(test)]
+pub const SENTRY_DSN: &str = "test-dsn";
+#[cfg(test)]
 pub const HTTP_PORT: u16 = 0;
 
 #[cfg(test)]
@@ -23,6 +25,7 @@ pub async fn start_app(pool: Pool<Sqlite>) -> SocketAddr {
         aws_config,
         s3_bucket: "test-bucket".into(),
         http_port: HTTP_PORT,
+        sentry_dsn: SENTRY_DSN.into(),
     };
     let address = format!("127.0.0.1:{HTTP_PORT}");
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();

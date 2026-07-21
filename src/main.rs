@@ -1,6 +1,7 @@
 mod app;
 mod handlers;
 mod routes;
+mod sentry;
 mod test;
 
 use app::db;
@@ -12,9 +13,10 @@ use axum::Router;
 #[tokio::main]
 async fn main() {
     log::init();
+    let env = Env::init().await;
+    let _guard = sentry::init(&env);
 
     let pool = db::init().await;
-    let env = Env::init().await;
     let http_port = env.http_port;
     let address = format!("0.0.0.0:{http_port}");
 
