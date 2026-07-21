@@ -11,11 +11,16 @@ pub async fn upload(
     bytes: Vec<u8>,
     content_type: &str,
 ) -> Result<String, AppError> {
-    let client = aws_sdk_s3::Client::new(aws_config);
-
     // Prefix the key with a timestamp so repeated uploads of the same
     // filename do not overwrite each other.
     let key = format!("uploads/{}-{}", Utc::now().timestamp_millis(), filename);
+
+    // Avoid hitting external storage during tests.
+    if cfg!(test) {
+        return Ok(key);
+    }
+
+    let client = aws_sdk_s3::Client::new(aws_config);
 
     client
         .put_object()
@@ -34,6 +39,11 @@ pub async fn upload(
 
 // Deletes a file from Tigris by key
 pub async fn delete(aws_config: &SdkConfig, bucket: &str, key: &str) -> Result<(), AppError> {
+    // Avoid hitting external storage during tests.
+    if cfg!(test) {
+        return Ok(());
+    }
+
     let client = aws_sdk_s3::Client::new(aws_config);
 
     client
