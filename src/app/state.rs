@@ -1,6 +1,6 @@
 use sqlx::SqlitePool;
 
-use crate::env::Env;
+use crate::app::env::Env;
 
 #[derive(Clone)]
 pub struct AppState {

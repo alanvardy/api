@@ -7,4 +7,6 @@ CREATE TABLE IF NOT EXISTS feature_flags (
     created_at DATETIME NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_feature_flags_name ON feature_flags (name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_feature_flags_name ON feature_flags (
+    name
+);

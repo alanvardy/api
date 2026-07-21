@@ -4,7 +4,7 @@ use axum::{
     http::StatusCode,
 };
 
-use crate::{
+use crate::app::{
     error::AppError,
     models::{CreateUser, UpdateUser, User},
     state::AppState,
