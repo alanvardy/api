@@ -108,6 +108,204 @@ mod tests {
     use crate::test::*;
     use sqlx::SqlitePool;
 
+    // Creates a user via the API and returns its id, satisfying the
+    // files.user_id foreign key before exercising image endpoints.
+    async fn create_user(client: &reqwest::Client, addr: &std::net::SocketAddr) -> i64 {
+        let response = client
+            .post(format!("http://{addr}/users"))
+            .header("content-type", "application/json")
+            .body(r#"{"name":"Alice","email":"alice@example.com"}"#)
+            .send()
+            .await
+            .expect("request to create user should succeed");
+
+        let created: serde_json::Value = response
+            .json()
+            .await
+            .expect("response should be valid JSON");
+
+        created["id"]
+            .as_i64()
+            .expect("created user should have an id")
+    }
+
+    #[sqlx::test]
+    async fn upload_image_returns_created_with_key(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+        let user_id = create_user(&client, &addr).await;
+
+        let data = STANDARD.encode(b"hello world");
+        let response = client
+            .post(format!("http://{addr}/users/{user_id}/images"))
+            .header("content-type", "application/json")
+            .json(&serde_json::json!({
+                "filename": "photo.png",
+                "content_type": "image/png",
+                "data": data,
+            }))
+            .send()
+            .await
+            .expect("request to upload image should succeed");
+
+        assert_eq!(response.status(), reqwest::StatusCode::CREATED);
+
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .expect("response should be valid JSON");
+
+        assert!(
+            body["key"]
+                .as_str()
+                .expect("upload response should include a key")
+                .ends_with("photo.png"),
+            "key should end with the uploaded filename"
+        );
+    }
+
+    #[sqlx::test]
+    async fn upload_image_with_invalid_base64_returns_bad_request(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+        let user_id = create_user(&client, &addr).await;
+
+        let response = client
+            .post(format!("http://{addr}/users/{user_id}/images"))
+            .header("content-type", "application/json")
+            .json(&serde_json::json!({
+                "filename": "photo.png",
+                "content_type": "image/png",
+                "data": "not valid base64!!!",
+            }))
+            .send()
+            .await
+            .expect("request to upload image should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+    }
+
+    #[sqlx::test]
+    async fn get_images_returns_uploaded_images(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+        let user_id = create_user(&client, &addr).await;
+
+        let data = STANDARD.encode(b"hello world");
+        client
+            .post(format!("http://{addr}/users/{user_id}/images"))
+            .header("content-type", "application/json")
+            .json(&serde_json::json!({
+                "filename": "photo.png",
+                "content_type": "image/png",
+                "data": data,
+            }))
+            .send()
+            .await
+            .expect("request to upload image should succeed");
+
+        let response = client
+            .get(format!("http://{addr}/users/{user_id}/images"))
+            .send()
+            .await
+            .expect("request to list images should succeed");
+
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+
+        let images: serde_json::Value = response
+            .json()
+            .await
+            .expect("response should be valid JSON");
+
+        let images = images.as_array().expect("response should be an array");
+        assert_eq!(images.len(), 1);
+        assert_eq!(images[0]["content_type"], "image/png");
+        assert_eq!(images[0]["user_id"], user_id);
+    }
+
+    #[sqlx::test]
+    async fn get_images_for_user_without_images_returns_empty(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+        let user_id = create_user(&client, &addr).await;
+
+        let response = client
+            .get(format!("http://{addr}/users/{user_id}/images"))
+            .send()
+            .await
+            .expect("request to list images should succeed");
+
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+
+        let images: serde_json::Value = response
+            .json()
+            .await
+            .expect("response should be valid JSON");
+
+        assert!(
+            images
+                .as_array()
+                .expect("response should be an array")
+                .is_empty()
+        );
+    }
+
+    #[sqlx::test]
+    async fn delete_image_removes_it(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+        let user_id = create_user(&client, &addr).await;
+
+        let data = STANDARD.encode(b"hello world");
+        client
+            .post(format!("http://{addr}/users/{user_id}/images"))
+            .header("content-type", "application/json")
+            .json(&serde_json::json!({
+                "filename": "photo.png",
+                "content_type": "image/png",
+                "data": data,
+            }))
+            .send()
+            .await
+            .expect("request to upload image should succeed");
+
+        let images: serde_json::Value = client
+            .get(format!("http://{addr}/users/{user_id}/images"))
+            .send()
+            .await
+            .expect("request to list images should succeed")
+            .json()
+            .await
+            .expect("response should be valid JSON");
+        let image_id = images[0]["id"]
+            .as_i64()
+            .expect("uploaded image should have an id");
+
+        let response = client
+            .delete(format!("http://{addr}/users/{user_id}/images/{image_id}"))
+            .send()
+            .await
+            .expect("request to delete image should succeed");
+
+        assert_eq!(response.status(), reqwest::StatusCode::NO_CONTENT);
+
+        let remaining: serde_json::Value = client
+            .get(format!("http://{addr}/users/{user_id}/images"))
+            .send()
+            .await
+            .expect("request to list images should succeed")
+            .json()
+            .await
+            .expect("response should be valid JSON");
+
+        assert!(
+            remaining
+                .as_array()
+                .expect("response should be an array")
+                .is_empty()
+        );
+    }
+
     #[sqlx::test]
     async fn delete_missing_image_returns_not_found(pool: SqlitePool) {
         let addr = start_app(pool).await;
