@@ -9,6 +9,7 @@ use crate::{
     models::{CreateUser, UpdateUser, User},
     state::AppState,
 };
+pub mod images;
 pub async fn create(
     State(state): State<AppState>,
     Json(payload): Json<CreateUser>,
