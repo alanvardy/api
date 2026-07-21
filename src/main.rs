@@ -15,12 +15,14 @@ async fn main() {
 
     let pool = db::init().await;
     let env = Env::init().await;
+    let http_port = env.http_port;
+    let address = format!("0.0.0.0:{http_port}");
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+    let listener = tokio::net::TcpListener::bind(address)
         .await
         .expect("failed to bind server");
 
-    tracing::info!("Server running on http://localhost:3000");
+    tracing::info!("Server running on http://localhost:{http_port}");
 
     axum::serve(listener, app(pool, &env)).await.unwrap();
 }
