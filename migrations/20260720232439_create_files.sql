@@ -8,5 +8,5 @@ CREATE TABLE IF NOT EXISTS files (
     created_at DATETIME NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_feature_flags_name ON files (key
+CREATE UNIQUE INDEX IF NOT EXISTS idx_files_key ON files (key
 );

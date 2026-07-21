@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FeatureFlag {
     pub id: i64,
     pub name: String,
@@ -11,14 +11,14 @@ pub struct FeatureFlag {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CreateFeatureFlag {
     pub name: String,
     #[serde(default)]
     pub enabled: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateFeatureFlag {
     #[serde(default)]
     pub enabled: bool,
@@ -31,14 +31,22 @@ pub struct User {
     pub email: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CreateUser {
     pub name: String,
     pub email: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateUser {
     pub name: String,
     pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct File {
+    pub id: i64,
+    pub key: String,
+    pub content_type: String,
+    pub user_id: i64,
 }

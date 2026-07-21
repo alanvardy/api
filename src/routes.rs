@@ -10,7 +10,6 @@ pub fn routes(env: &Env) -> Router<AppState> {
     Router::new()
         .nest("/feature_flags", feature_flags(env))
         .nest("/users", users())
-        .nest("/scratch", scratch())
 }
 pub fn feature_flags(env: &Env) -> Router<AppState> {
     let password = env.feature_flags_web_password.clone();
@@ -31,11 +30,15 @@ pub fn feature_flags(env: &Env) -> Router<AppState> {
         .merge(web)
 }
 
-pub fn scratch() -> Router<AppState> {
-    Router::new().route("/", post(handlers::file::upload))
+pub fn images() -> Router<AppState> {
+    Router::new().route(
+        "/",
+        post(handlers::users::images::post).get(handlers::users::images::get),
+    )
 }
 pub fn users() -> Router<AppState> {
     Router::new()
+        .nest("/{id}/images", images())
         .route("/", post(handlers::users::create).get(handlers::users::get))
         .route(
             "/{id}",
