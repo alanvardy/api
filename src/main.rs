@@ -1,17 +1,13 @@
-mod auth;
-mod db;
-mod env;
-mod error;
+mod app;
 mod handlers;
-mod log;
-mod models;
 mod routes;
-mod state;
 mod test;
 
+use app::db;
+use app::env::Env;
+use app::log;
+use app::state::AppState;
 use axum::Router;
-use env::Env;
-use state::AppState;
 
 #[tokio::main]
 async fn main() {

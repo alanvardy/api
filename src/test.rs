@@ -1,5 +1,5 @@
 #[cfg(test)]
-use crate::{app, env::Env};
+use crate::{app, app::env::Env};
 #[cfg(test)]
 use sqlx::{Pool, Sqlite};
 #[cfg(test)]
