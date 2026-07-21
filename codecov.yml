@@ -1,0 +1,4 @@
+ignore:
+  - "src/app/env.rs"
+  - "src/sentry.rs"
+  - "src/main.rs"
