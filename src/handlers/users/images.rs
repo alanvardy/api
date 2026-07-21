@@ -1,4 +1,4 @@
-use crate::app::models::File;
+use crate::app::models::{ContentType, File};
 use crate::app::{error::AppError, files, state::AppState};
 use axum::{
     Json,
@@ -23,7 +23,7 @@ pub struct UploadImage {
 pub struct FileResponse {
     pub id: i64,
     pub key: String,
-    pub content_type: String,
+    pub content_type: ContentType,
     pub user_id: i64,
     pub url: String,
 }
