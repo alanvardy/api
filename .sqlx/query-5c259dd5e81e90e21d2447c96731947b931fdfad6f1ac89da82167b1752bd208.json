@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id, name, email FROM users",
+  "query": "SELECT id, name, email,\n            created_at AS \"created_at: DateTime<Utc>\",\n            updated_at AS \"updated_at: DateTime<Utc>\"\n        FROM users WHERE id = ?",
   "describe": {
     "columns": [
       {
@@ -35,16 +35,40 @@
             "name": "email"
           }
         }
+      },
+      {
+        "name": "created_at: DateTime<Utc>",
+        "ordinal": 3,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "name": "updated_at: DateTime<Utc>",
+        "ordinal": 4,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "updated_at"
+          }
+        }
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
+      false,
+      false,
       false,
       false,
       false
     ]
   },
-  "hash": "68073fb4815dab309c28f17975118c972075006a19ea5abe544dc1643a0f338c"
+  "hash": "5c259dd5e81e90e21d2447c96731947b931fdfad6f1ac89da82167b1752bd208"
 }

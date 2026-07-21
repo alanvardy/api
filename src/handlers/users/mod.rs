@@ -3,6 +3,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
+use chrono::{DateTime, Utc};
 
 use crate::app::{
     error::AppError,
@@ -14,11 +15,16 @@ pub async fn create(
     State(state): State<AppState>,
     Json(payload): Json<CreateUser>,
 ) -> Result<(StatusCode, Json<User>), AppError> {
+    let now = Utc::now();
     let user = sqlx::query_as!(
         User,
-        "INSERT INTO users (name, email) VALUES (?, ?) RETURNING id, name, email",
+        r#"INSERT INTO users (name, email, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id, name, email,
+            created_at AS "created_at: DateTime<Utc>",
+            updated_at AS "updated_at: DateTime<Utc>""#,
         payload.name,
-        payload.email
+        payload.email,
+        now,
+        now,
     )
     .fetch_one(&state.db)
     .await?;
@@ -27,9 +33,16 @@ pub async fn create(
 }
 
 pub async fn get(State(state): State<AppState>) -> Result<Json<Vec<User>>, AppError> {
-    let users = sqlx::query_as!(User, "SELECT id, name, email FROM users")
-        .fetch_all(&state.db)
-        .await?;
+    let users = sqlx::query_as!(
+        User,
+        r#"
+        SELECT id, name, email,
+            created_at AS "created_at: DateTime<Utc>",
+            updated_at AS "updated_at: DateTime<Utc>"
+        FROM users"#
+    )
+    .fetch_all(&state.db)
+    .await?;
 
     Ok(Json(users))
 }
@@ -37,9 +50,16 @@ pub async fn get_by_id(
     Path(id): Path<i64>,
     State(state): State<AppState>,
 ) -> Result<Json<User>, AppError> {
-    let user = sqlx::query_as!(User, "SELECT id, name, email FROM users WHERE id = ?", id)
-        .fetch_optional(&state.db)
-        .await?;
+    let user = sqlx::query_as!(
+        User,
+        r#"SELECT id, name, email,
+            created_at AS "created_at: DateTime<Utc>",
+            updated_at AS "updated_at: DateTime<Utc>"
+        FROM users WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(&state.db)
+    .await?;
 
     user.map(Json).ok_or(AppError::NotFound)
 }
@@ -51,10 +71,12 @@ pub async fn update(
 ) -> Result<Json<User>, AppError> {
     let user = sqlx::query_as!(
         User,
-        "UPDATE users
+        r#"UPDATE users
          SET name = ?, email = ?
          WHERE id = ?
-         RETURNING id, name, email",
+         RETURNING id, name, email,
+            created_at AS "created_at: DateTime<Utc>",
+            updated_at AS "updated_at: DateTime<Utc>""#,
         payload.name,
         payload.email,
         id
@@ -82,7 +104,6 @@ pub async fn delete(
 #[cfg(test)]
 mod tests {
     use crate::test::*;
-    use chrono::Utc;
     use sqlx::SqlitePool;
 
     #[sqlx::test]
@@ -148,40 +169,74 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn get_feature_flags_returns_inserted_flag(pool: SqlitePool) {
-        sqlx::query(
-            "INSERT INTO feature_flags (name, enabled, created_at, updated_at)
-             VALUES (?, ?, ?, ?)",
-        )
-        .bind("dark_mode")
-        .bind(true)
-        .bind(Utc::now())
-        .bind(Utc::now())
-        .execute(&pool)
-        .await
-        .expect("inserting a feature flag should succeed");
-
+    async fn get_all_users_returns_created_users(pool: SqlitePool) {
         let addr = start_app(pool).await;
         let client = reqwest::Client::new();
 
-        let response = client
-            .get(format!("http://{addr}/feature_flags"))
+        // Create two users
+        let create_response = client
+            .post(format!("http://{addr}/users"))
+            .header("content-type", "application/json")
+            .body(r#"{"name":"Alice","email":"alice@example.com"}"#)
             .send()
             .await
-            .expect("request to fetch feature flags should succeed");
+            .expect("request to create first user should succeed");
+        assert_eq!(create_response.status(), reqwest::StatusCode::CREATED);
+
+        let create_response = client
+            .post(format!("http://{addr}/users"))
+            .header("content-type", "application/json")
+            .body(r#"{"name":"Bob","email":"bob@example.com"}"#)
+            .send()
+            .await
+            .expect("request to create second user should succeed");
+        assert_eq!(create_response.status(), reqwest::StatusCode::CREATED);
+
+        // Fetch all users
+        let response = client
+            .get(format!("http://{addr}/users"))
+            .send()
+            .await
+            .expect("request to fetch all users should succeed");
 
         assert_eq!(response.status(), reqwest::StatusCode::OK);
 
-        let flags: serde_json::Value = response
+        let users: serde_json::Value = response
             .json()
             .await
             .expect("response should be valid JSON");
 
-        assert_eq!(
-            flags.as_array().expect("response should be an array").len(),
-            1
+        let array = users.as_array().expect("response should be an array");
+        assert_eq!(array.len(), 2);
+
+        let names: Vec<&str> = array.iter().map(|u| u["name"].as_str().unwrap()).collect();
+        assert!(names.contains(&"Alice"));
+        assert!(names.contains(&"Bob"));
+    }
+
+    #[sqlx::test]
+    async fn get_all_users_empty_when_no_users(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/users"))
+            .send()
+            .await
+            .expect("request to fetch users should succeed");
+
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+
+        let users: serde_json::Value = response
+            .json()
+            .await
+            .expect("response should be valid JSON");
+
+        assert!(
+            users
+                .as_array()
+                .expect("response should be an array")
+                .is_empty()
         );
-        assert_eq!(flags[0]["name"], "dark_mode");
-        assert_eq!(flags[0]["enabled"], true);
     }
 }
