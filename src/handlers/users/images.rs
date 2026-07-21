@@ -8,6 +8,9 @@ use axum::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
+
+const ONE_DAY: Duration = Duration::from_secs(86400);
 
 #[derive(Deserialize)]
 pub struct UploadImage {
@@ -17,15 +20,19 @@ pub struct UploadImage {
 }
 
 #[derive(Serialize)]
-pub struct UploadResponse {
+pub struct FileResponse {
+    pub id: i64,
     pub key: String,
+    pub content_type: String,
+    pub user_id: i64,
+    pub url: String,
 }
 
 pub async fn post(
     Path(user_id): Path<i64>,
     State(state): State<AppState>,
     Json(payload): Json<UploadImage>,
-) -> Result<(StatusCode, Json<UploadResponse>), AppError> {
+) -> Result<(StatusCode, Json<FileResponse>), AppError> {
     let aws_config = state.env.aws_config;
     let bucket = state.env.s3_bucket;
     let filename = payload.filename;
@@ -36,7 +43,7 @@ pub async fn post(
 
     let key = files::upload(&aws_config, &bucket, &filename, bytes, &content_type).await?;
 
-    if let Err(err) = sqlx::query_as!(
+    let file = match sqlx::query_as!(
         File,
         "INSERT INTO files(key, content_type, user_id, updated_at, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id",
         key,
@@ -48,13 +55,27 @@ pub async fn post(
     .fetch_one(&state.db)
     .await
     {
-        // Roll back the uploaded object so we do not leave orphaned files
-        // in storage when the database insert fails.
-        files::delete(&aws_config, &bucket, &key).await?;
-        return Err(err.into());
-    }
+        Ok(file) => file,
+        Err(err) => {
+            // Roll back the uploaded object so we do not leave orphaned files
+            // in storage when the database insert fails.
+            files::delete(&aws_config, &bucket, &key).await?;
+            return Err(err.into());
+        }
+    };
 
-    Ok((StatusCode::CREATED, Json(UploadResponse { key })))
+    let url = files::presign_download(&aws_config, &bucket, &file.key, ONE_DAY).await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(FileResponse {
+            id: file.id,
+            key: file.key,
+            content_type: file.content_type,
+            user_id: file.user_id,
+            url,
+        }),
+    ))
 }
 
 pub async fn delete(
@@ -88,9 +109,8 @@ pub async fn delete(
 
 pub async fn get(
     Path(user_id): Path<i64>,
-
     State(state): State<AppState>,
-) -> Result<Json<Vec<File>>, AppError> {
+) -> Result<Json<Vec<FileResponse>>, AppError> {
     let files = sqlx::query_as!(
         File,
         "SELECT id, key, content_type, user_id FROM files WHERE user_id = ?",
@@ -99,7 +119,22 @@ pub async fn get(
     .fetch_all(&state.db)
     .await?;
 
-    Ok(Json(files))
+    let aws_config = &state.env.aws_config;
+    let bucket = &state.env.s3_bucket;
+
+    let mut responses = Vec::with_capacity(files.len());
+    for file in files {
+        let url = files::presign_download(aws_config, bucket, &file.key, ONE_DAY).await?;
+        responses.push(FileResponse {
+            id: file.id,
+            key: file.key,
+            content_type: file.content_type,
+            user_id: file.user_id,
+            url,
+        });
+    }
+
+    Ok(Json(responses))
 }
 
 #[cfg(test)]
@@ -155,12 +190,26 @@ mod tests {
             .await
             .expect("response should be valid JSON");
 
+        assert_eq!(
+            body["id"].as_i64().expect("response should include an id") > 0,
+            true,
+            "response should include a positive id"
+        );
         assert!(
             body["key"]
                 .as_str()
-                .expect("upload response should include a key")
+                .expect("response should include a key")
                 .ends_with("photo.png"),
             "key should end with the uploaded filename"
+        );
+        assert_eq!(body["content_type"], "image/png");
+        assert_eq!(body["user_id"].as_i64(), Some(user_id));
+        assert!(
+            body["url"]
+                .as_str()
+                .expect("response should include a url")
+                .starts_with("http"),
+            "url should be a presigned url"
         );
     }
 
