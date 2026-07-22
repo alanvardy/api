@@ -19,3 +19,4 @@ jobs:
         with:
           target: 'minor'
           merge-method: rebase
+          use-github-auto-merge: true
