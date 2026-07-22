@@ -14,7 +14,7 @@ use crate::app::{
     state::AppState,
 };
 
-pub async fn get_web(State(state): State<AppState>) -> Result<Html<String>, WebError> {
+pub async fn get(State(state): State<AppState>) -> Result<Html<String>, WebError> {
     let rows = sqlx::query(
         "SELECT id, key, content_type, user_id, created_at, updated_at, ai_flagged_at
            FROM files
