@@ -61,6 +61,7 @@ impl From<sqlx::Error> for AppError {
 // Application error for the HTML admin handlers. Renders an HTML page instead
 // of JSON so failures stay consistent with the feature-flag management UI.
 pub enum WebError {
+    App(AppError),
     Database(sqlx::Error),
     Template(minijinja::Error),
 }
@@ -68,6 +69,7 @@ pub enum WebError {
 impl IntoResponse for WebError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
+            WebError::App(err) => return err.into_response(),
             WebError::Database(err) => database_response(err),
             WebError::Template(err) => {
                 tracing::error!(error = %err, "template render error");
@@ -82,6 +84,12 @@ impl IntoResponse for WebError {
 impl From<sqlx::Error> for WebError {
     fn from(err: sqlx::Error) -> Self {
         WebError::Database(err)
+    }
+}
+
+impl From<AppError> for WebError {
+    fn from(err: AppError) -> Self {
+        WebError::App(err)
     }
 }
 

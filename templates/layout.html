@@ -77,12 +77,14 @@ button:hover { background: var(--primary-hover); }
 nav { margin-bottom: 1.5rem; }
 nav a { color: var(--primary); text-decoration: none; margin-right: 1rem; font-weight: 600; }
 nav a:hover { text-decoration: underline; }
+.thumbnail { width: 120px; height: auto; border-radius: 6px; border: 1px solid var(--border); display: block; }
 </style>
 </head>
 <body>
 <div class="container">
 <nav>
   <a href="/feature_flags/web">Feature Flags</a>
+  <a href="/images/web">Flagged Images</a>
 </nav>
 <h1>{% block heading %}{% endblock %}</h1>
 {% block content %}{% endblock %}

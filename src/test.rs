@@ -23,7 +23,7 @@ pub async fn start_app(pool: Pool<Sqlite>) -> SocketAddr {
     let aws_config = aws_config::load_from_env().await;
 
     let env = Env {
-        feature_flags_web_password: WEB_PASSWORD.into(),
+        web_password: WEB_PASSWORD.into(),
         aws_config,
         s3_bucket: "test-bucket".into(),
         http_port: HTTP_PORT,

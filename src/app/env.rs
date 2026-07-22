@@ -6,7 +6,7 @@ use aws_config::SdkConfig;
 
 #[derive(Clone)]
 pub struct Env {
-    pub feature_flags_web_password: String,
+    pub web_password: String,
     pub aws_config: SdkConfig,
     pub s3_bucket: String,
     pub http_port: u16,
@@ -20,13 +20,13 @@ impl Env {
         let s3_bucket = get_env("BUCKET_NAME");
         let sentry_dsn = get_env("SENTRY_DSN");
         let http_port = get_env("PORT").parse().unwrap();
-        let feature_flags_web_password = get_env("FEATURE_FLAGS_WEB_PASSWORD").parse().unwrap();
+        let web_password = get_env("WEB_PASSWORD").parse().unwrap();
         let bearer_token = get_env("BEARER_TOKEN");
 
         Env {
             aws_config,
             sentry_dsn,
-            feature_flags_web_password,
+            web_password,
             s3_bucket,
             http_port,
             bearer_token,
