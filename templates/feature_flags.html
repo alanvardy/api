@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block title %}Feature Flags{% endblock %}
+{% block heading %}Feature Flags{% endblock %}
+{% block content %}
+<div class="card">
+<form method="post" action="/feature_flags/web" class="create-form">
+<input type="text" name="name" placeholder="Flag name" required>
+<label><input type="checkbox" name="enabled" value="true"> Enabled</label>
+<button type="submit">Create flag</button>
+</form>
+</div>
+<div class="card">
+<table>
+<thead>
+<tr><th>ID</th><th>Created</th><th>Updated</th><th>Name</th><th>Status</th><th>Edit</th></tr>
+</thead>
+<tbody>
+{% for flag in flags %}
+<tr>
+<td>{{ flag.id }}</td>
+<td>{{ flag.created_at[0] }}<br>{{ flag.created_at[1] }}</td>
+<td>{{ flag.updated_at[0] }}<br>{{ flag.updated_at[1] }}</td>
+<td>{{ flag.name }}</td>
+<td>
+{% if flag.enabled %}
+<span class="status status-enabled">&#10004; Enabled</span>
+{% else %}
+<span class="status status-disabled">Disabled</span>
+{% endif %}
+</td>
+<td>
+<form method="post" action="/feature_flags/web/{{ flag.id }}" class="inline-form">
+<label><input type="checkbox" name="enabled" value="true"{% if flag.enabled %} checked{% endif %}> Enabled</label>
+<button type="submit">Save</button>
+</form>
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endblock %}
