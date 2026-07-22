@@ -6,4 +6,5 @@ use crate::app::env::Env;
 pub struct AppState {
     pub db: SqlitePool,
     pub env: Env,
+    pub templates: minijinja::Environment<'static>,
 }

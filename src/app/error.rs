@@ -62,12 +62,17 @@ impl From<sqlx::Error> for AppError {
 // of JSON so failures stay consistent with the feature-flag management UI.
 pub enum WebError {
     Database(sqlx::Error),
+    Template(minijinja::Error),
 }
 
 impl IntoResponse for WebError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             WebError::Database(err) => database_response(err),
+            WebError::Template(err) => {
+                tracing::error!(error = %err, "template render error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+            }
         };
 
         (status, Html(render_error_page(status, message))).into_response()
@@ -77,6 +82,12 @@ impl IntoResponse for WebError {
 impl From<sqlx::Error> for WebError {
     fn from(err: sqlx::Error) -> Self {
         WebError::Database(err)
+    }
+}
+
+impl From<minijinja::Error> for WebError {
+    fn from(err: minijinja::Error) -> Self {
+        WebError::Template(err)
     }
 }
 
