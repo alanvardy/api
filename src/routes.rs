@@ -10,7 +10,7 @@ use std::sync::Arc;
 pub fn routes(env: &Env) -> Router<AppState> {
     Router::new()
         .nest("/feature_flags", feature_flags(env))
-        .nest("/users", users())
+        .nest("/users", users(env))
 }
 pub fn feature_flags(env: &Env) -> Router<AppState> {
     let password = env.feature_flags_web_password.clone();
@@ -31,17 +31,23 @@ pub fn feature_flags(env: &Env) -> Router<AppState> {
         .merge(web)
 }
 
-pub fn images() -> Router<AppState> {
+pub fn images(env: &Env) -> Router<AppState> {
+    let token = env.bearer_token.clone();
+
     Router::new()
         .route(
             "/",
             post(handlers::users::images::post).get(handlers::users::images::get),
         )
         .route("/{image_id}", delete(handlers::users::images::delete))
+        .layer(from_fn_with_state(
+            Arc::<str>::from(token),
+            auth::require_bearer_token,
+        ))
 }
-pub fn users() -> Router<AppState> {
+pub fn users(env: &Env) -> Router<AppState> {
     Router::new()
-        .nest("/{id}/images", images())
+        .nest("/{id}/images", images(env))
         .route("/", post(handlers::users::create).get(handlers::users::get))
         .route(
             "/{id}",
