@@ -45,10 +45,11 @@ pub async fn post(
 
     let file = match sqlx::query_as!(
         File,
-        "INSERT INTO files(key, content_type, user_id, updated_at, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id",
+        "INSERT INTO files(key, content_type, user_id, updated_at, created_at, ai_flagged_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id",
         key,
         content_type,
         user_id,
+        Utc::now(),
         Utc::now(),
         Utc::now()
     )

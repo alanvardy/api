@@ -10,10 +10,11 @@ use std::sync::Arc;
 pub fn routes(env: &Env) -> Router<AppState> {
     Router::new()
         .nest("/feature_flags", feature_flags(env))
+        .nest("/images", images_web(env))
         .nest("/users", users(env))
 }
 pub fn feature_flags(env: &Env) -> Router<AppState> {
-    let password = env.feature_flags_web_password.clone();
+    let password = env.web_password.clone();
     // Password-protect the HTML admin routes while leaving the JSON API open.
     let web = Router::new()
         .route(
@@ -29,6 +30,22 @@ pub fn feature_flags(env: &Env) -> Router<AppState> {
     Router::new()
         .route("/", get(handlers::feature_flags::get))
         .merge(web)
+}
+
+pub fn images_web(env: &Env) -> Router<AppState> {
+    let password = env.web_password.clone();
+
+    Router::new()
+        .route("/web", get(handlers::images_web::get_web))
+        .route(
+            "/web/{id}/approve",
+            post(handlers::images_web::post_approve),
+        )
+        .route("/web/{id}/delete", post(handlers::images_web::post_delete))
+        .layer(from_fn_with_state(
+            Arc::<str>::from(password),
+            auth::require_web_password,
+        ))
 }
 
 pub fn images(env: &Env) -> Router<AppState> {

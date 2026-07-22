@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE files SET human_reviewed_at = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "8fc6a9188fbf862337e7ae1ca0c95f27f082c51e19d37c55ac6ffd19616da2ce"
+}

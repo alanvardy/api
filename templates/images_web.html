@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block title %}Flagged Images{% endblock %}
+{% block heading %}Flagged Images{% endblock %}
+{% block content %}
+<div class="card">
+<table>
+<thead>
+<tr><th>ID</th><th>Image</th><th>Created</th><th>Updated</th><th>AI Flagged</th><th>Type</th><th>User</th><th>Actions</th></tr>
+</thead>
+<tbody>
+{% for file in flagged %}
+<tr>
+<td>{{ file.id }}</td>
+<td><a href="{{ file.url }}" target="_blank"><img src="{{ file.url }}" alt="Flagged image" class="thumbnail" loading="lazy"></a></td>
+<td>{{ file.created_at[0] }}<br>{{ file.created_at[1] }}</td>
+<td>{{ file.updated_at[0] }}<br>{{ file.updated_at[1] }}</td>
+<td>{{ file.ai_flagged_at[0] }}<br>{{ file.ai_flagged_at[1] }}</td>
+<td>{{ file.content_type }}</td>
+<td>{{ file.user_id }}</td>
+<td>
+  <form method="post" action="/images/web/{{ file.id }}/approve" style="display:inline">
+    <button type="submit">Approve</button>
+  </form>
+  <form method="post" action="/images/web/{{ file.id }}/delete" style="display:inline; margin-left:8px">
+    <button type="submit" style="background-color:#e53e3e; color:#fff; border:none; margin-top:4px">Delete</button>
+  </form>
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endblock %}
