@@ -19,9 +19,9 @@ pub fn feature_flags(env: &Env) -> Router<AppState> {
     let web = Router::new()
         .route(
             "/web",
-            get(handlers::feature_flags::get_web).post(handlers::feature_flags::create_web),
+            get(handlers::web::feature_flags::get).post(handlers::web::feature_flags::create),
         )
-        .route("/web/{id}", post(handlers::feature_flags::update_web))
+        .route("/web/{id}", post(handlers::web::feature_flags::update))
         .layer(from_fn_with_state(
             Arc::<str>::from(password),
             auth::require_web_password,
@@ -36,12 +36,12 @@ pub fn images_web(env: &Env) -> Router<AppState> {
     let password = env.web_password.clone();
 
     Router::new()
-        .route("/web", get(handlers::images_web::get_web))
+        .route("/web", get(handlers::web::images::get))
         .route(
             "/web/{id}/approve",
-            post(handlers::images_web::post_approve),
+            post(handlers::web::images::post_approve),
         )
-        .route("/web/{id}/delete", post(handlers::images_web::post_delete))
+        .route("/web/{id}/delete", post(handlers::web::images::post_delete))
         .layer(from_fn_with_state(
             Arc::<str>::from(password),
             auth::require_web_password,
