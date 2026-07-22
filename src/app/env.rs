@@ -11,6 +11,7 @@ pub struct Env {
     pub s3_bucket: String,
     pub http_port: u16,
     pub sentry_dsn: String,
+    pub bearer_token: String,
 }
 
 impl Env {
@@ -20,6 +21,7 @@ impl Env {
         let sentry_dsn = get_env("SENTRY_DSN");
         let http_port = get_env("PORT").parse().unwrap();
         let feature_flags_web_password = get_env("FEATURE_FLAGS_WEB_PASSWORD").parse().unwrap();
+        let bearer_token = get_env("BEARER_TOKEN");
 
         Env {
             aws_config,
@@ -27,6 +29,7 @@ impl Env {
             feature_flags_web_password,
             s3_bucket,
             http_port,
+            bearer_token,
         }
     }
 }

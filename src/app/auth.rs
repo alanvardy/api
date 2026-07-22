@@ -10,6 +10,31 @@ use axum::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 use subtle::ConstantTimeEq;
 
+/// Rejects requests that do not present the configured Bearer token in the
+/// Authorization header, so image endpoints stay private.
+pub async fn require_bearer_token(
+    State(token): State<Arc<str>>,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
+    let authorized = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .is_some_and(|t| t.as_bytes().ct_eq(token.as_bytes()).into());
+
+    if authorized {
+        next.run(request).await
+    } else {
+        (
+            StatusCode::UNAUTHORIZED,
+            [(header::WWW_AUTHENTICATE, "Bearer")],
+        )
+            .into_response()
+    }
+}
+
 // Username paired with the configured web password for HTTP Basic Auth.
 const WEB_AUTH_USERNAME: &str = "admin";
 

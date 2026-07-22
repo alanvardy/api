@@ -141,7 +141,17 @@ pub async fn get(
 mod tests {
     use super::*;
     use crate::test::*;
+    use reqwest::header;
     use sqlx::SqlitePool;
+
+    fn bearer_header() -> header::HeaderMap {
+        let mut headers = header::HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            header::HeaderValue::from_str(&format!("Bearer {BEARER_TOKEN}")).unwrap(),
+        );
+        headers
+    }
 
     // Creates a user via the API and returns its id, satisfying the
     // files.user_id foreign key before exercising image endpoints.
@@ -165,6 +175,38 @@ mod tests {
     }
 
     #[sqlx::test]
+    async fn image_endpoints_reject_missing_bearer_token(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/users/1/images"))
+            .send()
+            .await
+            .expect("request without token should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    }
+
+    #[sqlx::test]
+    async fn image_endpoints_reject_wrong_bearer_token(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/users/1/images"))
+            .header(
+                header::AUTHORIZATION,
+                header::HeaderValue::from_static("Bearer wrong-token"),
+            )
+            .send()
+            .await
+            .expect("request with wrong token should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    }
+
+    #[sqlx::test]
     async fn upload_image_returns_created_with_key(pool: SqlitePool) {
         let addr = start_app(pool).await;
         let client = reqwest::Client::new();
@@ -173,6 +215,7 @@ mod tests {
         let data = STANDARD.encode(b"hello world");
         let response = client
             .post(format!("http://{addr}/users/{user_id}/images"))
+            .headers(bearer_header())
             .header("content-type", "application/json")
             .json(&serde_json::json!({
                 "filename": "photo.png",
@@ -221,6 +264,7 @@ mod tests {
 
         let response = client
             .post(format!("http://{addr}/users/{user_id}/images"))
+            .headers(bearer_header())
             .header("content-type", "application/json")
             .json(&serde_json::json!({
                 "filename": "photo.png",
@@ -243,6 +287,7 @@ mod tests {
         let data = STANDARD.encode(b"hello world");
         client
             .post(format!("http://{addr}/users/{user_id}/images"))
+            .headers(bearer_header())
             .header("content-type", "application/json")
             .json(&serde_json::json!({
                 "filename": "photo.png",
@@ -255,6 +300,7 @@ mod tests {
 
         let response = client
             .get(format!("http://{addr}/users/{user_id}/images"))
+            .headers(bearer_header())
             .send()
             .await
             .expect("request to list images should succeed");
@@ -280,6 +326,7 @@ mod tests {
 
         let response = client
             .get(format!("http://{addr}/users/{user_id}/images"))
+            .headers(bearer_header())
             .send()
             .await
             .expect("request to list images should succeed");
@@ -308,6 +355,7 @@ mod tests {
         let data = STANDARD.encode(b"hello world");
         client
             .post(format!("http://{addr}/users/{user_id}/images"))
+            .headers(bearer_header())
             .header("content-type", "application/json")
             .json(&serde_json::json!({
                 "filename": "photo.png",
@@ -320,6 +368,7 @@ mod tests {
 
         let images: serde_json::Value = client
             .get(format!("http://{addr}/users/{user_id}/images"))
+            .headers(bearer_header())
             .send()
             .await
             .expect("request to list images should succeed")
@@ -332,6 +381,7 @@ mod tests {
 
         let response = client
             .delete(format!("http://{addr}/users/{user_id}/images/{image_id}"))
+            .headers(bearer_header())
             .send()
             .await
             .expect("request to delete image should succeed");
@@ -340,6 +390,7 @@ mod tests {
 
         let remaining: serde_json::Value = client
             .get(format!("http://{addr}/users/{user_id}/images"))
+            .headers(bearer_header())
             .send()
             .await
             .expect("request to list images should succeed")
@@ -362,6 +413,7 @@ mod tests {
 
         let response = client
             .delete(format!("http://{addr}/users/1/images/999"))
+            .headers(bearer_header())
             .send()
             .await
             .expect("request to delete missing image should complete");
