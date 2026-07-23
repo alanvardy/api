@@ -18,3 +18,6 @@
 ## Commits and PRs
 - Code comments should describe what and why but not how
 - `main` is the base branch when reviewing code
+
+## Issues
+Issues can be created with `linear issue create --no-interactive -t "<title>" -d "<description>" -p <priority from 1-4, descending priority>`
