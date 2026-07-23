@@ -167,6 +167,10 @@ mod tests {
         let response = client
             .post(format!("http://{addr}/users"))
             .header("content-type", "application/json")
+            .header(
+                header::AUTHORIZATION,
+                header::HeaderValue::from_str(&format!("Bearer {BEARER_TOKEN}")).unwrap(),
+            )
             .body(r#"{"name":"Alice","email":"alice@example.com"}"#)
             .send()
             .await
