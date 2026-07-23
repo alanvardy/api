@@ -6,7 +6,7 @@ use axum::{
     http::StatusCode,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -24,6 +24,8 @@ pub struct FileResponse {
     pub id: i64,
     pub key: String,
     pub content_type: ContentType,
+    pub ai_flagged_at: Option<DateTime<Utc>>,
+    pub human_reviewed_at: Option<DateTime<Utc>>,
     pub user_id: i64,
     pub url: String,
 }
@@ -45,13 +47,14 @@ pub async fn post(
 
     let file = match sqlx::query_as!(
         File,
-        "INSERT INTO files(key, content_type, user_id, updated_at, created_at, ai_flagged_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id",
+        "INSERT INTO files(key, content_type, user_id, updated_at, created_at, ai_flagged_at, human_reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\"",
         key,
         content_type,
         user_id,
         Utc::now(),
         Utc::now(),
-        Utc::now()
+        Utc::now(),
+        None::<DateTime<Utc>>,
     )
     .fetch_one(&state.db)
     .await
@@ -75,6 +78,8 @@ pub async fn post(
             content_type: file.content_type,
             user_id: file.user_id,
             url,
+            ai_flagged_at: file.ai_flagged_at,
+            human_reviewed_at: file.human_reviewed_at,
         }),
     ))
 }
@@ -89,7 +94,7 @@ pub async fn delete(
     // Ensure the file exists and belongs to this user before touching storage.
     let file = sqlx::query_as!(
         File,
-        "SELECT id, key, content_type, user_id FROM files WHERE user_id = ? AND id = ?",
+        "SELECT id, key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\" FROM files WHERE user_id = ? AND id = ?",
         user_id,
         image_id
     )
@@ -114,7 +119,7 @@ pub async fn get(
 ) -> Result<Json<Vec<FileResponse>>, AppError> {
     let files = sqlx::query_as!(
         File,
-        "SELECT id, key, content_type, user_id FROM files WHERE user_id = ?",
+        "SELECT id, key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\" FROM files WHERE user_id = ?",
         user_id
     )
     .fetch_all(&state.db)
@@ -130,6 +135,8 @@ pub async fn get(
             id: file.id,
             key: file.key,
             content_type: file.content_type,
+            ai_flagged_at: file.ai_flagged_at,
+            human_reviewed_at: file.human_reviewed_at,
             user_id: file.user_id,
             url,
         });

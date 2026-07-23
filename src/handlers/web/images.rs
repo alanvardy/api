@@ -43,7 +43,7 @@ pub async fn get(State(state): State<AppState>) -> Result<Html<String>, WebError
     }
     let html = state
         .templates
-        .get_template("images_web.html")?
+        .get_template("images.html")?
         .render(context! { flagged })?;
 
     Ok(Html(html))
@@ -269,5 +269,97 @@ mod tests {
                 .and_then(|value| value.to_str().ok())
                 .is_some_and(|value| value.contains("Basic"))
         );
+    }
+
+    #[sqlx::test]
+    async fn post_delete_removes_flagged_file(pool: SqlitePool) {
+        let now = Utc::now();
+
+        sqlx::query(
+            "INSERT INTO users (name, email, created_at, updated_at)
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind("Alice")
+        .bind("alice@example.com")
+        .bind(now)
+        .bind(now)
+        .execute(&pool)
+        .await
+        .expect("inserting a user should succeed");
+
+        let file_id: i64 = sqlx::query_scalar(
+            "INSERT INTO files (key, content_type, user_id, created_at, updated_at, ai_flagged_at)
+             VALUES (?, ?, ?, ?, ?, ?)
+             RETURNING id",
+        )
+        .bind("uploads/flagged.png")
+        .bind("image/png")
+        .bind(1)
+        .bind(now)
+        .bind(now)
+        .bind(now)
+        .fetch_one(&pool)
+        .await
+        .expect("inserting a flagged file should succeed");
+
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap();
+
+        let response = client
+            .post(format!("http://{addr}/images/web/images/{file_id}/delete"))
+            .basic_auth(WEB_USERNAME, Some(WEB_PASSWORD))
+            .send()
+            .await
+            .expect("request to delete flagged file should succeed");
+
+        assert_eq!(response.status(), reqwest::StatusCode::SEE_OTHER);
+        assert_eq!(
+            response
+                .headers()
+                .get("location")
+                .and_then(|v| v.to_str().ok()),
+            Some("/images/web")
+        );
+
+        // Verify the file no longer appears in the flagged list.
+        let body = client
+            .get(format!("http://{addr}/images/web"))
+            .basic_auth(WEB_USERNAME, Some(WEB_PASSWORD))
+            .send()
+            .await
+            .expect("request to fetch images web page should succeed")
+            .text()
+            .await
+            .expect("response should have a text body");
+
+        assert!(!body.contains("fake-presigned&#x2f;uploads&#x2f;flagged.png"));
+    }
+
+    #[sqlx::test]
+    async fn post_delete_missing_file_returns_not_found(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap();
+
+        let response = client
+            .post(format!("http://{addr}/images/web/images/999/delete"))
+            .basic_auth(WEB_USERNAME, Some(WEB_PASSWORD))
+            .send()
+            .await
+            .expect("request to delete missing file should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
+
+        let body = response
+            .text()
+            .await
+            .expect("response should have a text body");
+
+        assert!(body.contains("resource not found"));
     }
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id, key, content_type, user_id FROM files WHERE user_id = ? AND id = ?",
+  "query": "SELECT id, key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\" FROM files WHERE user_id = ?",
   "describe": {
     "columns": [
       {
@@ -46,17 +46,41 @@
             "name": "user_id"
           }
         }
+      },
+      {
+        "name": "ai_flagged_at: DateTime<Utc>",
+        "ordinal": 4,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "ai_flagged_at"
+          }
+        }
+      },
+      {
+        "name": "human_reviewed_at: DateTime<Utc>",
+        "ordinal": 5,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "human_reviewed_at"
+          }
+        }
       }
     ],
     "parameters": {
-      "Right": 2
+      "Right": 1
     },
     "nullable": [
       false,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "e2a297916d6def20604007ed51c815c25c35a2bd6d06708775c08a1c8712f642"
+  "hash": "29e3146870472502983de47b2787897cebb6bbf8ed336435235fa43b0f99f257"
 }
