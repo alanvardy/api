@@ -38,10 +38,13 @@ pub fn images_web(env: &Env) -> Router<AppState> {
     Router::new()
         .route("/web", get(handlers::web::images::get))
         .route(
-            "/web/{id}/approve",
+            "/web/images/{id}/approve",
             post(handlers::web::images::post_approve),
         )
-        .route("/web/{id}/delete", post(handlers::web::images::post_delete))
+        .route(
+            "/web/images/{id}/delete",
+            post(handlers::web::images::post_delete),
+        )
         .layer(from_fn_with_state(
             Arc::<str>::from(password),
             auth::require_web_password,

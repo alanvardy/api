@@ -6,32 +6,33 @@
 <title>{% block title %}Admin{% endblock %}</title>
 <style>
 :root {
-  --bg: #f4f6fb;
-  --card: #ffffff;
-  --border: #e2e8f0;
-  --text: #1e293b;
-  --muted: #64748b;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --green: #16a34a;
-  --green-bg: #dcfce7;
+  --bg: #0f1117;
+  --card: #1a1d27;
+  --border: #2a2d3a;
+  --text: #e2e8f0;
+  --muted: #8892b0;
+  --primary: #6366f1;
+  --primary-hover: #818cf8;
+  --green: #22c55e;
+  --green-bg: #052e16;
+  --nav-bg: #13151e;
 }
 * { box-sizing: border-box; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   margin: 0;
-  padding: 2.5rem 1.5rem;
+  padding: 0;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
 }
-.container { max-width: 960px; margin: 0 auto; }
+.container { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem; }
 h1 { margin: 0 0 1.5rem; font-size: 1.75rem; font-weight: 700; }
 .card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
 }
@@ -45,7 +46,7 @@ th {
   font-weight: 600;
 }
 tbody tr { transition: background 0.15s ease; }
-tbody tr:hover { background: #f8fafc; }
+tbody tr:hover { background: #1e2130; }
 tbody tr:last-child td { border-bottom: none; }
 form { margin: 0; }
 .inline-form { display: flex; gap: 0.5rem; align-items: center; }
@@ -57,8 +58,10 @@ input[type="text"] {
   border-radius: 8px;
   font-size: 0.95rem;
   min-width: 220px;
+  background: var(--bg);
+  color: var(--text);
 }
-input[type="text"]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+input[type="text"]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
 button {
   padding: 0.5rem 1rem;
   border: none;
@@ -73,19 +76,43 @@ button {
 button:hover { background: var(--primary-hover); }
 .status { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
 .status-enabled { background: var(--green-bg); color: var(--green); }
-.status-disabled { background: #f1f5f9; color: var(--muted); }
-nav { margin-bottom: 1.5rem; }
-nav a { color: var(--primary); text-decoration: none; margin-right: 1rem; font-weight: 600; }
-nav a:hover { text-decoration: underline; }
+.status-disabled { background: #1e2130; color: var(--muted); }
+nav {
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  margin-bottom: 0;
+}
+nav .nav-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  gap: 0;
+}
+nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 1rem 1.25rem;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+nav a:hover { color: var(--text); }
+nav a.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
 .thumbnail { width: 120px; height: auto; border-radius: 6px; border: 1px solid var(--border); display: block; }
 </style>
 </head>
 <body>
-<div class="container">
 <nav>
-  <a href="/feature_flags/web">Feature Flags</a>
-  <a href="/images/web">Flagged Images</a>
+  <div class="nav-inner">
+    <a href="/feature_flags/web" class="{% block active_flags %}{% endblock %}">Feature Flags</a>
+    <a href="/images/web" class="{% block active_images %}{% endblock %}">Flagged Images</a>
+  </div>
 </nav>
+<div class="container">
 <h1>{% block heading %}{% endblock %}</h1>
 {% block content %}{% endblock %}
 </div>

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO files(key, content_type, user_id, updated_at, created_at, ai_flagged_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id",
+  "query": "INSERT INTO files(key, content_type, user_id, updated_at, created_at, ai_flagged_at, human_reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\"",
   "describe": {
     "columns": [
       {
@@ -46,17 +46,41 @@
             "name": "user_id"
           }
         }
+      },
+      {
+        "name": "ai_flagged_at: DateTime<Utc>",
+        "ordinal": 4,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "ai_flagged_at"
+          }
+        }
+      },
+      {
+        "name": "human_reviewed_at: DateTime<Utc>",
+        "ordinal": 5,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "human_reviewed_at"
+          }
+        }
       }
     ],
     "parameters": {
-      "Right": 6
+      "Right": 7
     },
     "nullable": [
       null,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "eb65f7a3c7b647dc9f35b1ac657062caf587ff6b2f7d5566704325a492fd22b2"
+  "hash": "bbaa83e8af91adc92c46aa1c617b8bb533b891a8268062659fe4a909c7b430d1"
 }

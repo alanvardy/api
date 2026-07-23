@@ -135,4 +135,96 @@ pub struct File {
     pub key: String,
     pub content_type: ContentType,
     pub user_id: i64,
+    pub ai_flagged_at: Option<DateTime<Utc>>,
+    pub human_reviewed_at: Option<DateTime<Utc>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_str_and_from_str_roundtrip_all_variants() {
+        let variants = [
+            ContentType::Png,
+            ContentType::Jpeg,
+            ContentType::Gif,
+            ContentType::Webp,
+            ContentType::Svg,
+            ContentType::Bmp,
+            ContentType::Tiff,
+            ContentType::Avif,
+            ContentType::Heic,
+            ContentType::Heif,
+            ContentType::Ico,
+        ];
+        for ct in variants {
+            let s = ct.as_str();
+            let parsed = ContentType::from_str(s);
+            assert_eq!(parsed, Some(ct.clone()), "roundtrip failed for {s}");
+        }
+    }
+
+    #[test]
+    fn from_str_unknown_content_type_returns_none() {
+        assert_eq!(ContentType::from_str("application/pdf"), None);
+        assert_eq!(ContentType::from_str("text/plain"), None);
+        assert_eq!(ContentType::from_str(""), None);
+    }
+
+    #[test]
+    fn into_string_converts_to_mime() {
+        let s: String = ContentType::Png.into();
+        assert_eq!(s, "image/png");
+
+        let s: String = ContentType::Svg.into();
+        assert_eq!(s, "image/svg+xml");
+    }
+
+    #[test]
+    fn try_from_str_happy_path() {
+        let ct = ContentType::try_from("image/jpeg");
+        assert_eq!(ct, Ok(ContentType::Jpeg));
+    }
+
+    #[test]
+    fn try_from_str_unknown_returns_err_with_message() {
+        let result = ContentType::try_from("application/octet-stream");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown content type"));
+    }
+
+    #[test]
+    fn serialize_then_deserialize_preserves_value() {
+        let original = ContentType::Webp;
+        let json = serde_json::to_string(&original).expect("serialize should succeed");
+        assert_eq!(json, "\"image/webp\"");
+
+        let parsed: ContentType = serde_json::from_str(&json).expect("deserialize should succeed");
+        assert_eq!(parsed, original);
+    }
+
+    #[test]
+    fn deserialize_unknown_mime_fails() {
+        let result: Result<ContentType, _> = serde_json::from_str("\"application/zip\"");
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("unknown content type")
+        );
+    }
+
+    #[test]
+    fn from_string_happy_path_converts_known_mime() {
+        let ct: ContentType = ContentType::from("image/gif".to_string());
+        assert_eq!(ct, ContentType::Gif);
+    }
+
+    #[test]
+    #[should_panic(expected = "unknown content type")]
+    fn from_string_panics_on_unknown_mime() {
+        let _ct: ContentType = ContentType::from("x-fake/type".to_string());
+    }
 }
