@@ -99,6 +99,108 @@ impl From<minijinja::Error> for WebError {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── database_response ──────────────────────────────────────────
+
+    #[test]
+    fn database_error_generic_returns_internal_server_error() {
+        let err = sqlx::Error::PoolClosed;
+        let (status, message) = database_response(err);
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(message, "internal server error");
+    }
+
+    // ── AppError → IntoResponse ───────────────────────────────────
+
+    #[test]
+    fn not_found_returns_404() {
+        let response = AppError::NotFound.into_response();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn bad_request_returns_400() {
+        let response = AppError::BadRequest("something went wrong").into_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn storage_returns_500() {
+        let response = AppError::Storage.into_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn database_error_delegates_to_database_response() {
+        let response = AppError::Database(sqlx::Error::PoolClosed).into_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    // ── WebError → IntoResponse ───────────────────────────────────
+
+    #[test]
+    fn web_error_app_delegates_to_app_error() {
+        let response = WebError::App(AppError::NotFound).into_response();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn web_error_database_generic_returns_500_html() {
+        let response = WebError::Database(sqlx::Error::PoolClosed).into_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn web_error_template_returns_500_html() {
+        let err = minijinja::Error::new(minijinja::ErrorKind::TemplateNotFound, "missing.html");
+        let response = WebError::Template(err).into_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    // ── From impls ────────────────────────────────────────────────
+
+    #[test]
+    fn sqlx_error_converts_to_app_error_database() {
+        let err = sqlx::Error::PoolClosed;
+        let app_err = AppError::from(err);
+        assert!(matches!(app_err, AppError::Database(_)));
+    }
+
+    #[test]
+    fn app_error_converts_to_web_error() {
+        let web_err = WebError::from(AppError::NotFound);
+        assert!(matches!(web_err, WebError::App(AppError::NotFound)));
+    }
+
+    #[test]
+    fn sqlx_error_converts_to_web_error_database() {
+        let err = sqlx::Error::PoolClosed;
+        let web_err = WebError::from(err);
+        assert!(matches!(web_err, WebError::Database(_)));
+    }
+
+    #[test]
+    fn minijinja_error_converts_to_web_error_template() {
+        let err = minijinja::Error::new(minijinja::ErrorKind::TemplateNotFound, "missing.html");
+        let web_err = WebError::from(err);
+        assert!(matches!(web_err, WebError::Template(_)));
+    }
+
+    // ── render_error_page ─────────────────────────────────────────
+
+    #[test]
+    fn render_error_page_includes_status_and_message() {
+        let html = render_error_page(StatusCode::IM_A_TEAPOT, "brew overflow");
+        assert!(html.contains("418"));
+        assert!(html.contains("brew overflow"));
+        assert!(html.contains("<title>Error 418</title>"));
+        assert!(html.contains("<h1>Error 418</h1>"));
+    }
+}
+
 fn render_error_page(status: StatusCode, message: &str) -> String {
     format!(
         r#"<!DOCTYPE html>

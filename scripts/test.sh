@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+echo "=== UPDATE MIGRATIONS ===" &&
+cargo sqlx prepare &&
+echo "=== FORMAT ===" &&
+cargo fmt --all &&
 echo "=== CHECK ===" &&
 cargo check &&
 echo "=== CLIPPY ===" &&
