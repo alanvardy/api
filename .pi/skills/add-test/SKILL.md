@@ -1,5 +1,5 @@
 ---
-name: add_test
+name: add-test
 description: |
   Finds untested code in either the happy path or an error case and writes a
   test for it using existing codebase conventions. Use when the user wants to

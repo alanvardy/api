@@ -104,6 +104,7 @@ pub async fn delete(
 #[cfg(test)]
 mod tests {
     use crate::test::*;
+    use reqwest::header;
     use sqlx::SqlitePool;
 
     #[sqlx::test]
@@ -114,6 +115,7 @@ mod tests {
         let create_response = client
             .post(format!("http://{addr}/users"))
             .header("content-type", "application/json")
+            .header(header::AUTHORIZATION, format!("Bearer {BEARER_TOKEN}"))
             .body(r#"{"name":"Alice","email":"alice@example.com"}"#)
             .send()
             .await
@@ -131,6 +133,7 @@ mod tests {
 
         let get_response = client
             .get(format!("http://{addr}/users/{id}"))
+            .header(header::AUTHORIZATION, format!("Bearer {BEARER_TOKEN}"))
             .send()
             .await
             .expect("request to fetch user should succeed");
@@ -154,6 +157,7 @@ mod tests {
 
         let response = client
             .get(format!("http://{addr}/users/999"))
+            .header(header::AUTHORIZATION, format!("Bearer {BEARER_TOKEN}"))
             .send()
             .await
             .expect("request to fetch missing user should complete");
@@ -177,6 +181,7 @@ mod tests {
         let create_response = client
             .post(format!("http://{addr}/users"))
             .header("content-type", "application/json")
+            .header(header::AUTHORIZATION, format!("Bearer {BEARER_TOKEN}"))
             .body(r#"{"name":"Alice","email":"alice@example.com"}"#)
             .send()
             .await
@@ -186,6 +191,7 @@ mod tests {
         let create_response = client
             .post(format!("http://{addr}/users"))
             .header("content-type", "application/json")
+            .header(header::AUTHORIZATION, format!("Bearer {BEARER_TOKEN}"))
             .body(r#"{"name":"Bob","email":"bob@example.com"}"#)
             .send()
             .await
@@ -195,6 +201,7 @@ mod tests {
         // Fetch all users
         let response = client
             .get(format!("http://{addr}/users"))
+            .header(header::AUTHORIZATION, format!("Bearer {BEARER_TOKEN}"))
             .send()
             .await
             .expect("request to fetch all users should succeed");
@@ -221,6 +228,7 @@ mod tests {
 
         let response = client
             .get(format!("http://{addr}/users"))
+            .header(header::AUTHORIZATION, format!("Bearer {BEARER_TOKEN}"))
             .send()
             .await
             .expect("request to fetch users should succeed");
@@ -238,5 +246,34 @@ mod tests {
                 .expect("response should be an array")
                 .is_empty()
         );
+    }
+
+    #[sqlx::test]
+    async fn user_endpoints_reject_wrong_bearer_token(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/users"))
+            .header(header::AUTHORIZATION, "Bearer wrong-token")
+            .send()
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    }
+
+    #[sqlx::test]
+    async fn user_endpoints_reject_missing_token(pool: SqlitePool) {
+        let addr = start_app(pool).await;
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{addr}/users"))
+            .send()
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
     }
 }

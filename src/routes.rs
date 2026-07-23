@@ -66,6 +66,8 @@ pub fn images(env: &Env) -> Router<AppState> {
         ))
 }
 pub fn users(env: &Env) -> Router<AppState> {
+    let token = env.bearer_token.clone();
+
     Router::new()
         .nest("/{id}/images", images(env))
         .route("/", post(handlers::users::create).get(handlers::users::get))
@@ -75,4 +77,8 @@ pub fn users(env: &Env) -> Router<AppState> {
                 .put(handlers::users::update)
                 .delete(handlers::users::delete),
         )
+        .layer(from_fn_with_state(
+            Arc::<str>::from(token),
+            auth::require_bearer_token,
+        ))
 }
