@@ -8,22 +8,14 @@ use minijinja::context;
 use serde::Serialize;
 
 use crate::app::{
+    self,
     error::WebError,
     models::{CreateFeatureFlag, FeatureFlag, UpdateFeatureFlag},
     state::AppState,
 };
 
 pub async fn get(State(state): State<AppState>) -> Result<Html<String>, WebError> {
-    let feature_flags = sqlx::query_as!(
-        FeatureFlag,
-        r#"SELECT id, name, enabled,
-            created_at AS "created_at: DateTime<Utc>",
-            updated_at AS "updated_at: DateTime<Utc>"
-           FROM feature_flags"#
-    )
-    .fetch_all(&state.db)
-    .await?;
-
+    let feature_flags = app::feature_flags::list(&state.db).await?;
     let flags: Vec<FlagView> = feature_flags.into_iter().map(FlagView::from).collect();
     let html = state
         .templates
@@ -37,18 +29,7 @@ pub async fn create(
     State(state): State<AppState>,
     Form(payload): Form<CreateFeatureFlag>,
 ) -> Result<Redirect, WebError> {
-    let now = Utc::now();
-    sqlx::query!(
-        "INSERT INTO feature_flags (name, enabled, created_at, updated_at)
-         VALUES (?, ?, ?, ?)",
-        payload.name,
-        payload.enabled,
-        now,
-        now
-    )
-    .execute(&state.db)
-    .await?;
-
+    app::feature_flags::create(&state.db, &payload.name, payload.enabled).await?;
     Ok(Redirect::to("/feature_flags/web"))
 }
 
@@ -57,18 +38,7 @@ pub async fn update(
     State(state): State<AppState>,
     Form(payload): Form<UpdateFeatureFlag>,
 ) -> Result<Redirect, WebError> {
-    let now = Utc::now();
-    sqlx::query!(
-        "UPDATE feature_flags
-         SET enabled = ?, updated_at = ?
-         WHERE id = ?",
-        payload.enabled,
-        now,
-        id
-    )
-    .execute(&state.db)
-    .await?;
-
+    app::feature_flags::update(&state.db, id, payload.enabled).await?;
     Ok(Redirect::to("/feature_flags/web"))
 }
 

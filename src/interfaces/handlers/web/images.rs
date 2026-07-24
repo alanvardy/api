@@ -1,3 +1,5 @@
+use crate::app::{self, error::WebError, state::AppState};
+use crate::infra;
 use axum::{
     extract::{Path, State},
     response::{Html, Redirect},
@@ -5,40 +7,27 @@ use axum::{
 use chrono::{DateTime, Utc};
 use minijinja::context;
 use serde::Serialize;
-use sqlx::Row;
 use std::time::Duration;
 
-use crate::app::{
-    error::{AppError, WebError},
-    files,
-    state::AppState,
-};
-
 pub async fn get(State(state): State<AppState>) -> Result<Html<String>, WebError> {
-    let rows = sqlx::query(
-        "SELECT id, key, content_type, user_id, created_at, updated_at, ai_flagged_at
-           FROM files
-           WHERE ai_flagged_at IS NOT NULL
-             AND human_reviewed_at IS NULL",
-    )
-    .fetch_all(&state.db)
-    .await?;
-
     let aws_config = &state.env.aws_config;
     let bucket = &state.env.s3_bucket;
 
+    let rows = app::files::list_where_flagged(&state.db).await?;
     let mut flagged = Vec::with_capacity(rows.len());
     for row in rows {
-        let key: String = row.get("key");
-        let url = files::presign_download(aws_config, bucket, &key, ONE_DAY).await?;
+        let url = infra::tigris::presign_download(aws_config, bucket, &row.key, ONE_DAY).await?;
         flagged.push(FlaggedFileView {
-            id: row.get("id"),
-            content_type: row.get::<&str, _>("content_type").to_string(),
-            user_id: row.get("user_id"),
+            id: row.id,
+            content_type: row.content_type.as_str().to_string(),
+            user_id: row.user_id,
             url,
-            created_at: format_datetime(row.get("created_at")),
-            updated_at: format_datetime(row.get("updated_at")),
-            ai_flagged_at: format_datetime(row.get("ai_flagged_at")),
+            created_at: format_datetime(row.created_at),
+            updated_at: format_datetime(row.updated_at),
+            ai_flagged_at: format_datetime(
+                row.ai_flagged_at
+                    .expect("ai_flagged_at is null but query filters for IS NOT NULL"),
+            ),
         });
     }
     let html = state
@@ -85,19 +74,13 @@ pub async fn post_delete(
     let aws_config = &state.env.aws_config;
     let bucket = &state.env.s3_bucket;
 
-    let key: String = sqlx::query_scalar("SELECT key FROM files WHERE id = ?")
-        .bind(id)
-        .fetch_optional(&state.db)
-        .await?
-        .ok_or(WebError::App(AppError::NotFound))?;
+    let file = app::files::find(&state.db, id).await?;
 
     // Remove the object from storage first so a database delete failure does
     // not leave a dangling record pointing at a missing object.
-    files::delete(aws_config, bucket, &key).await?;
+    infra::tigris::delete(aws_config, bucket, &file.key).await?;
 
-    sqlx::query!("DELETE FROM files WHERE id = ?", id)
-        .execute(&state.db)
-        .await?;
+    app::files::delete(&state.db, id).await?;
 
     Ok(Redirect::to("/images/web"))
 }

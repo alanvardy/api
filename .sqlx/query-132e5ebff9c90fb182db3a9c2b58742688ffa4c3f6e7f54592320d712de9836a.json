@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id, key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\" FROM files WHERE user_id = ?",
+  "query": "SELECT id, key, content_type, user_id, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\", ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\" FROM files WHERE user_id = ? AND id = ?",
   "describe": {
     "columns": [
       {
@@ -48,8 +48,30 @@
         }
       },
       {
-        "name": "ai_flagged_at: DateTime<Utc>",
+        "name": "created_at: DateTime<Utc>",
         "ordinal": 4,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "name": "updated_at: DateTime<Utc>",
+        "ordinal": 5,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "name": "ai_flagged_at: DateTime<Utc>",
+        "ordinal": 6,
         "type_info": "Datetime",
         "origin": {
           "Table": {
@@ -60,7 +82,7 @@
       },
       {
         "name": "human_reviewed_at: DateTime<Utc>",
-        "ordinal": 5,
+        "ordinal": 7,
         "type_info": "Datetime",
         "origin": {
           "Table": {
@@ -71,9 +93,11 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 2
     },
     "nullable": [
+      false,
+      false,
       false,
       false,
       false,
@@ -82,5 +106,5 @@
       true
     ]
   },
-  "hash": "29e3146870472502983de47b2787897cebb6bbf8ed336435235fa43b0f99f257"
+  "hash": "132e5ebff9c90fb182db3a9c2b58742688ffa4c3f6e7f54592320d712de9836a"
 }

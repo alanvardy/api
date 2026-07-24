@@ -135,6 +135,8 @@ pub struct File {
     pub key: String,
     pub content_type: ContentType,
     pub user_id: i64,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub ai_flagged_at: Option<DateTime<Utc>>,
     pub human_reviewed_at: Option<DateTime<Utc>>,
 }
