@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.9"
-base64 = "0.22"
+base64 = "0.23"
 chrono = { version = "0.4", features = ["serde"] }
 aws-config = { version = "1.1.7", features = ["behavior-version-latest"] }
 aws-sdk-s3 = "1.138.1"
