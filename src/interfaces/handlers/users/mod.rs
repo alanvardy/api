@@ -1,9 +1,9 @@
+use crate::app;
 use axum::{
     Json,
     extract::{Path, State},
     http::StatusCode,
 };
-use chrono::{DateTime, Utc};
 
 use crate::app::{
     error::AppError,
@@ -15,52 +15,19 @@ pub async fn create(
     State(state): State<AppState>,
     Json(payload): Json<CreateUser>,
 ) -> Result<(StatusCode, Json<User>), AppError> {
-    let now = Utc::now();
-    let user = sqlx::query_as!(
-        User,
-        r#"INSERT INTO users (name, email, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id, name, email,
-            created_at AS "created_at: DateTime<Utc>",
-            updated_at AS "updated_at: DateTime<Utc>""#,
-        payload.name,
-        payload.email,
-        now,
-        now,
-    )
-    .fetch_one(&state.db)
-    .await?;
-
+    let user = app::users::create(&state.db, &payload.name, &payload.email).await?;
     Ok((StatusCode::CREATED, Json(user)))
 }
 
 pub async fn get(State(state): State<AppState>) -> Result<Json<Vec<User>>, AppError> {
-    let users = sqlx::query_as!(
-        User,
-        r#"
-        SELECT id, name, email,
-            created_at AS "created_at: DateTime<Utc>",
-            updated_at AS "updated_at: DateTime<Utc>"
-        FROM users"#
-    )
-    .fetch_all(&state.db)
-    .await?;
-
+    let users = app::users::list(&state.db).await?;
     Ok(Json(users))
 }
 pub async fn get_by_id(
     Path(id): Path<i64>,
     State(state): State<AppState>,
 ) -> Result<Json<User>, AppError> {
-    let user = sqlx::query_as!(
-        User,
-        r#"SELECT id, name, email,
-            created_at AS "created_at: DateTime<Utc>",
-            updated_at AS "updated_at: DateTime<Utc>"
-        FROM users WHERE id = ?"#,
-        id
-    )
-    .fetch_optional(&state.db)
-    .await?;
-
+    let user = app::users::get_by_id(&state.db, id).await?;
     user.map(Json).ok_or(AppError::NotFound)
 }
 
@@ -69,21 +36,7 @@ pub async fn update(
     State(state): State<AppState>,
     Json(payload): Json<UpdateUser>,
 ) -> Result<Json<User>, AppError> {
-    let user = sqlx::query_as!(
-        User,
-        r#"UPDATE users
-         SET name = ?, email = ?
-         WHERE id = ?
-         RETURNING id, name, email,
-            created_at AS "created_at: DateTime<Utc>",
-            updated_at AS "updated_at: DateTime<Utc>""#,
-        payload.name,
-        payload.email,
-        id
-    )
-    .fetch_optional(&state.db)
-    .await?;
-
+    let user = app::users::update(&state.db, id, &payload.name, &payload.email).await?;
     user.map(Json).ok_or(AppError::NotFound)
 }
 
@@ -91,10 +44,7 @@ pub async fn delete(
     Path(id): Path<i64>,
     State(state): State<AppState>,
 ) -> Result<StatusCode, AppError> {
-    let result = sqlx::query!("DELETE FROM users WHERE id = ?", id)
-        .execute(&state.db)
-        .await?;
-
+    let result = app::users::delete(&state.db, id).await?;
     if result.rows_affected() == 0 {
         Ok(StatusCode::NOT_FOUND)
     } else {

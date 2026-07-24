@@ -1,18 +1,9 @@
+use crate::app;
 use axum::{Json, extract::State};
-use chrono::{DateTime, Utc};
 
 use crate::app::{error::AppError, models::FeatureFlag, state::AppState};
 pub async fn get(State(state): State<AppState>) -> Result<Json<Vec<FeatureFlag>>, AppError> {
-    let feature_flags = sqlx::query_as!(
-        FeatureFlag,
-        r#"SELECT id, name, enabled,
-            created_at AS "created_at: DateTime<Utc>",
-            updated_at AS "updated_at: DateTime<Utc>"
-           FROM feature_flags"#
-    )
-    .fetch_all(&state.db)
-    .await?;
-
+    let feature_flags = app::feature_flags::list(&state.db).await?;
     Ok(Json(feature_flags))
 }
 

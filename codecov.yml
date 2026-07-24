@@ -2,3 +2,8 @@ ignore:
   - "src/app/env.rs"
   - "src/sentry.rs"
   - "src/main.rs"
+
+coverage:
+  status:
+    project:
+      target: 70%

@@ -1,5 +1,7 @@
-use crate::app::models::{ContentType, File};
-use crate::app::{error::AppError, files, state::AppState};
+use crate::app;
+use crate::app::models::ContentType;
+use crate::app::{error::AppError, state::AppState};
+use crate::infra;
 use axum::{
     Json,
     extract::{Path, State},
@@ -43,32 +45,19 @@ pub async fn post(
         .decode(payload.data.as_bytes())
         .map_err(|_| AppError::BadRequest("invalid base64 data"))?;
 
-    let key = files::upload(&aws_config, &bucket, &filename, bytes, &content_type).await?;
+    let key = infra::tigris::upload(&aws_config, &bucket, &filename, bytes, &content_type).await?;
 
-    let file = match sqlx::query_as!(
-        File,
-        "INSERT INTO files(key, content_type, user_id, updated_at, created_at, ai_flagged_at, human_reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\"",
-        key,
-        content_type,
-        user_id,
-        Utc::now(),
-        Utc::now(),
-        Utc::now(),
-        None::<DateTime<Utc>>,
-    )
-    .fetch_one(&state.db)
-    .await
-    {
+    let file = match app::files::create(&state.db, &key, user_id, &content_type).await {
         Ok(file) => file,
         Err(err) => {
             // Roll back the uploaded object so we do not leave orphaned files
             // in storage when the database insert fails.
-            files::delete(&aws_config, &bucket, &key).await?;
+            infra::tigris::delete(&aws_config, &bucket, &key).await?;
             return Err(err.into());
         }
     };
 
-    let url = files::presign_download(&aws_config, &bucket, &file.key, ONE_DAY).await?;
+    let url = infra::tigris::presign_download(&aws_config, &bucket, &file.key, ONE_DAY).await?;
 
     Ok((
         StatusCode::CREATED,
@@ -92,23 +81,13 @@ pub async fn delete(
     let bucket = state.env.s3_bucket;
 
     // Ensure the file exists and belongs to this user before touching storage.
-    let file = sqlx::query_as!(
-        File,
-        "SELECT id, key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\" FROM files WHERE user_id = ? AND id = ?",
-        user_id,
-        image_id
-    )
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or(AppError::NotFound)?;
+    let file = app::files::delete_by_id_and_user_id(&state.db, image_id, user_id).await?;
 
     // Remove the object from storage first so a database delete failure does
     // not leave a dangling record pointing at a missing object.
-    files::delete(&aws_config, &bucket, &file.key).await?;
+    infra::tigris::delete(&aws_config, &bucket, &file.key).await?;
 
-    sqlx::query!("DELETE FROM files WHERE id = ?", file.id)
-        .execute(&state.db)
-        .await?;
+    app::files::delete(&state.db, file.id).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -117,20 +96,13 @@ pub async fn get(
     Path(user_id): Path<i64>,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<FileResponse>>, AppError> {
-    let files = sqlx::query_as!(
-        File,
-        "SELECT id, key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\" FROM files WHERE user_id = ?",
-        user_id
-    )
-    .fetch_all(&state.db)
-    .await?;
-
+    let files = app::files::list(&state.db, user_id).await?;
     let aws_config = &state.env.aws_config;
     let bucket = &state.env.s3_bucket;
 
     let mut responses = Vec::with_capacity(files.len());
     for file in files {
-        let url = files::presign_download(aws_config, bucket, &file.key, ONE_DAY).await?;
+        let url = infra::tigris::presign_download(aws_config, bucket, &file.key, ONE_DAY).await?;
         responses.push(FileResponse {
             id: file.id,
             key: file.key,

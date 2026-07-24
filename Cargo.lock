@@ -265,6 +265,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "subtle",
+ "syn 2.0.118",
  "tokio",
  "tower-http 0.7.0",
  "tracing",

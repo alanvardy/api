@@ -1,95 +1,79 @@
-use crate::app::error::AppError;
-use aws_config::SdkConfig;
-use aws_sdk_s3::presigning::PresigningConfig;
-use aws_sdk_s3::primitives::ByteStream;
-use chrono::Utc;
-use std::time::Duration;
+use chrono::{DateTime, Utc};
+use sqlx::{Error, Pool, Sqlite};
 
-// Uploads a file to Tigris and returns the key
-pub async fn upload(
-    aws_config: &SdkConfig,
-    bucket: &str,
-    filename: &str,
-    bytes: Vec<u8>,
-    content_type: &str,
-) -> Result<String, AppError> {
-    // Prefix the key with a timestamp so repeated uploads of the same
-    // filename do not overwrite each other.
-    let key = format!("uploads/{}-{}", Utc::now().timestamp_millis(), filename);
+use crate::app::{error::AppError, models::File};
 
-    // Avoid hitting external storage during tests.
-    if cfg!(test) {
-        return Ok(key);
-    }
-
-    let client = aws_sdk_s3::Client::new(aws_config);
-
-    client
-        .put_object()
-        .bucket(bucket)
-        .key(&key)
-        .body(ByteStream::from(bytes))
-        .content_type(content_type)
-        .send()
-        .await
-        .map(|_| key)
-        .map_err(|err| {
-            tracing::error!(error = %err, "failed to upload object to s3");
-            AppError::Storage
-        })
-}
-
-// Generates a presigned download URL for a key in the given bucket.
-// The URL is valid for `expires_in` (max 7 days).
-pub async fn presign_download(
-    aws_config: &SdkConfig,
-    bucket: &str,
+pub async fn create(
+    db: &Pool<Sqlite>,
     key: &str,
-    expires_in: Duration,
-) -> Result<String, AppError> {
-    // Avoid hitting external credential resolution during tests.
-    if cfg!(test) {
-        return Ok(format!("https://fake-presigned/{key}"));
-    }
-
-    let client = aws_sdk_s3::Client::new(aws_config);
-
-    let config = PresigningConfig::expires_in(expires_in).map_err(|err| {
-        tracing::error!(error = %err, "invalid presigning duration");
-        AppError::Storage
-    })?;
-
-    client
-        .get_object()
-        .bucket(bucket)
-        .key(key)
-        .presigned(config)
-        .await
-        .map(|req| req.uri().to_owned())
-        .map_err(|err| {
-            tracing::error!(error = %err, "failed to presign s3 get_object");
-            AppError::Storage
-        })
+    user_id: i64,
+    content_type: &str,
+) -> Result<File, Error> {
+    sqlx::query_as!(
+        File,
+        "INSERT INTO files(key, content_type, user_id, updated_at, created_at, ai_flagged_at, human_reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\", ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\"",
+        key,
+        content_type,
+        user_id,
+        Utc::now(),
+        Utc::now(),
+        Utc::now(),
+        None::<DateTime<Utc>>,
+    )
+    .fetch_one(db)
+    .await
 }
 
-// Deletes a file from Tigris by key
-pub async fn delete(aws_config: &SdkConfig, bucket: &str, key: &str) -> Result<(), AppError> {
-    // Avoid hitting external storage during tests.
-    if cfg!(test) {
-        return Ok(());
+pub async fn list(db: &Pool<Sqlite>, user_id: i64) -> Result<Vec<File>, Error> {
+    sqlx::query_as!(
+        File,
+        "SELECT id, key, content_type, user_id, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\", ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\" FROM files WHERE user_id = ?",
+        user_id
+    )
+    .fetch_all(db)
+    .await
+}
+
+pub async fn list_where_flagged(db: &Pool<Sqlite>) -> Result<Vec<File>, Error> {
+    sqlx::query_as!(
+        File,
+        "SELECT id, key, content_type, user_id, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\", ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\"
+           FROM files
+           WHERE ai_flagged_at IS NOT NULL
+             AND human_reviewed_at IS NULL",
+    )
+    .fetch_all(db)
+    .await
+}
+pub async fn delete_by_id_and_user_id(
+    db: &Pool<Sqlite>,
+    id: i64,
+    user_id: i64,
+) -> Result<File, AppError> {
+    sqlx::query_as!(
+        File,
+        "SELECT id, key, content_type, user_id, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\", ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\" FROM files WHERE user_id = ? AND id = ?",
+        user_id,
+        id
+    )
+    .fetch_optional(db)
+    .await?
+    .ok_or(AppError::NotFound)
+}
+
+pub async fn delete(db: &Pool<Sqlite>, id: i64) -> Result<(), AppError> {
+    let result = sqlx::query!("DELETE FROM files WHERE id = ?", id)
+        .execute(db)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound);
     }
+    Ok(())
+}
 
-    let client = aws_sdk_s3::Client::new(aws_config);
-
-    client
-        .delete_object()
-        .bucket(bucket)
-        .key(key)
-        .send()
-        .await
-        .map(|_| ())
-        .map_err(|err| {
-            tracing::error!(error = %err, "failed to delete object from s3");
-            AppError::Storage
-        })
+pub async fn find(db: &Pool<Sqlite>, id: i64) -> Result<File, AppError> {
+    sqlx::query_as!(File, "SELECT id, key, content_type, user_id, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\", ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\"  FROM files WHERE id = ?", id)
+        .fetch_optional(db)
+        .await?
+        .ok_or(AppError::NotFound)
 }

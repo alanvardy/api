@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO files(key, content_type, user_id, updated_at, created_at, ai_flagged_at, human_reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id as \"id!\", key, content_type, user_id, ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\"",
+  "query": "SELECT id, key, content_type, user_id, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\", ai_flagged_at as \"ai_flagged_at: DateTime<Utc>\", human_reviewed_at as \"human_reviewed_at: DateTime<Utc>\"  FROM files WHERE id = ?",
   "describe": {
     "columns": [
       {
-        "name": "id!",
+        "name": "id",
         "ordinal": 0,
         "type_info": "Integer",
         "origin": {
@@ -48,8 +48,30 @@
         }
       },
       {
-        "name": "ai_flagged_at: DateTime<Utc>",
+        "name": "created_at: DateTime<Utc>",
         "ordinal": 4,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "name": "updated_at: DateTime<Utc>",
+        "ordinal": 5,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "name": "ai_flagged_at: DateTime<Utc>",
+        "ordinal": 6,
         "type_info": "Datetime",
         "origin": {
           "Table": {
@@ -60,7 +82,7 @@
       },
       {
         "name": "human_reviewed_at: DateTime<Utc>",
-        "ordinal": 5,
+        "ordinal": 7,
         "type_info": "Datetime",
         "origin": {
           "Table": {
@@ -71,10 +93,12 @@
       }
     ],
     "parameters": {
-      "Right": 7
+      "Right": 1
     },
     "nullable": [
-      null,
+      false,
+      false,
+      false,
       false,
       false,
       false,
@@ -82,5 +106,5 @@
       true
     ]
   },
-  "hash": "bbaa83e8af91adc92c46aa1c617b8bb533b891a8268062659fe4a909c7b430d1"
+  "hash": "c4d9ec0c7732d416c90039ad8a3fad673bfbdfca213e21d7e1cc0e212749c3f7"
 }
