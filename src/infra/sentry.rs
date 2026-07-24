@@ -1,8 +1,6 @@
-use crate::app::env::Env;
-
-pub fn init(env: &Env) -> sentry::ClientInitGuard {
+pub fn init(sentry_dsn: &str) -> sentry::ClientInitGuard {
     sentry::init((
-        env.sentry_dsn.clone(),
+        sentry_dsn,
         sentry::ClientOptions {
             release: sentry::release_name!(),
             // Capture user IPs and potentially sensitive headers when using HTTP server integrations

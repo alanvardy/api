@@ -1,5 +1,5 @@
 use crate::app::{auth, env::Env, state::AppState};
-use crate::handlers;
+use crate::interfaces::handlers;
 use axum::{
     Router,
     middleware::from_fn_with_state,
