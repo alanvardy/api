@@ -4,6 +4,7 @@ use crate::{app, app::env::Env};
 use sqlx::{Pool, Sqlite};
 #[cfg(test)]
 use std::net::SocketAddr;
+mod arkitect;
 
 #[cfg(test)]
 pub const WEB_USERNAME: &str = "admin";
