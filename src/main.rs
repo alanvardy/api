@@ -1,22 +1,20 @@
 mod app;
-mod handlers;
-mod routes;
-mod sentry;
+mod domain;
+mod infra;
+mod interfaces;
 mod test;
 
-use app::db;
 use app::env::Env;
-use app::log;
 use app::state::AppState;
 use axum::Router;
 
 #[tokio::main]
 async fn main() {
-    log::init();
+    app::log::init();
     let env = Env::init().await;
-    let _guard = sentry::init(&env);
+    let _guard = infra::sentry::init(&env.sentry_dsn);
 
-    let pool = db::init().await;
+    let pool = infra::db::init().await;
     let http_port = env.http_port;
     let address = format!("0.0.0.0:{http_port}");
 
@@ -30,27 +28,48 @@ async fn main() {
 }
 
 fn app(pool: sqlx::SqlitePool, env: &Env) -> Router {
-    let templates = init_templates();
+    let templates = app::templates::init();
     let state = AppState {
         db: pool,
         env: env.clone(),
         templates,
     };
 
-    routes::routes(env)
-        .layer(log::trace_layer())
+    interfaces::routes::routes(env)
+        .layer(app::log::trace_layer())
         .with_state(state)
 }
 
-fn init_templates() -> minijinja::Environment<'static> {
-    let mut templates = minijinja::Environment::new();
-    templates.set_loader(minijinja::path_loader("templates"));
-    templates.set_auto_escape_callback(|name| {
-        if name.ends_with(".html") {
-            minijinja::AutoEscape::Html
-        } else {
-            minijinja::AutoEscape::None
-        }
-    });
-    templates
+#[cfg(test)]
+mod tests {
+    use rust_arkitect::dsl::architectural_rules::ArchitecturalRules;
+    use rust_arkitect::dsl::arkitect::Arkitect;
+    use rust_arkitect::dsl::project::Project;
+    #[test]
+    fn test_architectural_rules() {
+        Arkitect::init_logger();
+        let domain_deps = vec!["base64", "chrono", "std"];
+
+        let infra_deps = [vec!["axum", "sqlx", "sentry"], domain_deps.clone()].concat();
+        let project = Project::from_current_crate();
+
+        let rules = Box::new(
+            ArchitecturalRules::define()
+                .rules_for_module("api::app")
+                .it_must_not_depend_on(&["api::interfaces"])
+                .rules_for_module("api::domain")
+                .it_may_depend_on(&domain_deps),
+        )
+        .rules_for_module("api::infra")
+        .it_may_depend_on(&infra_deps)
+        .build();
+
+        let result = Arkitect::ensure_that(project).complies_with(rules);
+
+        assert!(
+            result.is_ok(),
+            "Detected {} violations",
+            result.err().unwrap().len()
+        );
+    }
 }

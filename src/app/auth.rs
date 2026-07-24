@@ -10,8 +10,7 @@ use axum::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 use subtle::ConstantTimeEq;
 
-/// Rejects requests that do not present the configured Bearer token in the
-/// Authorization header, so image endpoints stay private.
+/// Rejects requests that do not present the configured Bearer token in the Authorization header
 pub async fn require_bearer_token(
     State(token): State<Arc<str>>,
     request: Request<Body>,
